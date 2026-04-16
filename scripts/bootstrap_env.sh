@@ -47,6 +47,7 @@ required = [
     "metaapi_cloud_sdk",
     "pinecone",
     "sentence_transformers",
+    "neo4j",
 ]
 
 missing = []

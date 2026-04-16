@@ -8,3 +8,4 @@ metaapi-cloud-sdk
 streamlit
 plotly
 pinecone
+neo4j

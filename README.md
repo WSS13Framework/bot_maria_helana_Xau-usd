@@ -47,6 +47,15 @@ python3 rag_pinecone.py index
 python3 rag_pinecone.py query --text "geopolitical risk and gold direction"
 ```
 
+## Knowledge Graph com Neo4j
+```bash
+# sincronizar dados locais no grafo
+python3 kg_neo4j.py sync
+
+# consultar eventos de maior risco recente
+python3 kg_neo4j.py query --cypher "MATCH (e:MarketEvent) RETURN e.source, e.eventTime, e.riskFlag ORDER BY e.eventTime DESC LIMIT 10"
+```
+
 ## Contexto global (EUA + Europa + Asia + minerais + estrutura produtiva)
 ```bash
 python3 coletar_contexto_global.py --fred-api-key SUA_FRED_API_KEY
