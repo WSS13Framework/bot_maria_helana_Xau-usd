@@ -21,6 +21,7 @@ bash scripts/bootstrap_env.sh
 ```bash
 python3 test_benzinga.py
 python3 coletar_macro.py
+python3 coletar_contexto_global.py
 python3 coletar_candles.py
 python3 build_dataset.py
 python3 label_triple_barrier.py

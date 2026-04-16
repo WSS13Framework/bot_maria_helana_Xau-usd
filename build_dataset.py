@@ -105,6 +105,28 @@ def _build_news_events(news_path: Path) -> pd.DataFrame:
     return news_frame
 
 
+def _build_global_context_frame(global_context_path: Path, structural_path: Path) -> pd.DataFrame:
+    context_frames: list[pd.DataFrame] = []
+    for path in (global_context_path, structural_path):
+        if not path.exists():
+            continue
+        frame = pd.read_csv(path)
+        if "time" not in frame.columns:
+            continue
+        frame["time"] = pd.to_datetime(frame["time"], utc=True, errors="coerce")
+        frame = frame.dropna(subset=["time"]).sort_values("time").drop_duplicates("time")
+        context_frames.append(frame)
+
+    if not context_frames:
+        return pd.DataFrame(columns=["time"])
+
+    merged = context_frames[0]
+    for frame in context_frames[1:]:
+        merged = merged.merge(frame, on="time", how="outer")
+    merged = merged.sort_values("time").ffill().bfill().reset_index(drop=True)
+    return merged
+
+
 def _add_news_window_features(base_frame: pd.DataFrame, news_events: pd.DataFrame) -> pd.DataFrame:
     frame = base_frame.copy()
     frame["news_count_1h"] = 0
@@ -156,6 +178,8 @@ def build_dataset(
     d1_path: Path,
     macro_snapshot_path: Path,
     news_path: Path,
+    global_context_path: Path | None = None,
+    structural_context_path: Path | None = None,
 ) -> pd.DataFrame:
     m5_frame = _read_candle_frame(m5_path, prefix="m5")
     h1_frame = _read_candle_frame(h1_path, prefix="h1")
@@ -197,6 +221,40 @@ def build_dataset(
     dataset["m5_log_return_12"] = np.log(dataset["m5_close"]).diff(12)
     dataset["m5_range"] = (dataset["m5_high"] - dataset["m5_low"]) / dataset["m5_close"]
 
+    if global_context_path and global_context_path.exists():
+        global_context = pd.read_csv(global_context_path)
+        if "time" in global_context.columns:
+            global_context["time"] = pd.to_datetime(global_context["time"], utc=True, errors="coerce")
+            global_context = (
+                global_context.dropna(subset=["time"])
+                .sort_values("time")
+                .drop_duplicates("time")
+            )
+            dataset = pd.merge_asof(
+                dataset.sort_values("time"),
+                global_context.sort_values("time"),
+                on="time",
+                direction="backward",
+            )
+
+    if structural_context_path and structural_context_path.exists():
+        structural_context = pd.read_csv(structural_context_path)
+        if "time" in structural_context.columns:
+            structural_context["time"] = pd.to_datetime(
+                structural_context["time"], utc=True, errors="coerce"
+            )
+            structural_context = (
+                structural_context.dropna(subset=["time"])
+                .sort_values("time")
+                .drop_duplicates("time")
+            )
+            dataset = pd.merge_asof(
+                dataset.sort_values("time"),
+                structural_context.sort_values("time"),
+                on="time",
+                direction="backward",
+            )
+
     return dataset
 
 
@@ -231,6 +289,8 @@ def main() -> None:
         d1_path=args.data_dir / "xauusd_d1.json",
         macro_snapshot_path=args.data_dir / "macro_snapshot.json",
         news_path=args.data_dir / "benzinga_relevant_news.json",
+        global_context_path=args.data_dir / "global_context_daily.csv",
+        structural_context_path=args.data_dir / "global_structural_fred.csv",
     )
     dataset.to_csv(args.output, index=False)
     _save_metadata(dataset, args.meta_output)
