@@ -40,6 +40,8 @@ required = [
     "numpy",
     "sklearn",
     "catboost",
+    "streamlit",
+    "plotly",
     "requests",
     "dotenv",
     "metaapi_cloud_sdk",

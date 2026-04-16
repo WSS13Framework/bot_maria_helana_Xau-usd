@@ -57,6 +57,19 @@ python3 executor_demo_autonomo.py --symbol XAUUSD
 python3 executor_demo_autonomo.py --symbol XAUUSD --execute
 ```
 
+## Painel SaaS (sem linha de comando)
+```bash
+streamlit run dashboard_saas.py --server.port 8501 --server.address 0.0.0.0
+```
+
+O painel mostra:
+- saldo/equity e informacoes de conta
+- posicoes abertas por simbolo
+- grafico de candles recentes (espelho de mercado)
+- status do gate institucional
+- sinal atual (`p_long`, `p_short`) e lote sugerido por risco
+- botoes para dry-run e execucao do robo autonomo
+
 ## Gestão institucional de posição aberta
 ```bash
 # Apenas diagnostico (sem modificar posição)
