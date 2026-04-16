@@ -12,10 +12,28 @@ Sistema de inteligencia para trading de ouro XAU/USD.
 cp .env.example .env
 ```
 
-## Bootstrap (Cloud/Servidor)
+## Bootstrap de ambiente (reproduzível)
 ```bash
 bash scripts/bootstrap_env.sh
 ```
 
-Esse script cria/usa o venv em `/root/maria-helena/venv`, instala as dependencias
-de ML e valida imports criticos.
+## Pipeline institucional
+```bash
+python3 test_benzinga.py
+python3 coletar_macro.py
+python3 coletar_candles.py
+python3 build_dataset.py
+python3 label_triple_barrier.py
+python3 train_baseline.py
+python3 backtest_walkforward.py
+python3 risk_execution.py
+```
+
+## Robustez e validação institucional
+```bash
+python3 purged_walkforward.py
+python3 robustness_grid.py
+```
+
+Esse script de bootstrap cria/usa o venv em `/root/maria-helena/venv`,
+instala as dependencias de ML e valida imports criticos.
