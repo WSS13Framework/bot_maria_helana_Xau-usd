@@ -7,3 +7,4 @@ python-dotenv
 metaapi-cloud-sdk
 streamlit
 plotly
+pinecone

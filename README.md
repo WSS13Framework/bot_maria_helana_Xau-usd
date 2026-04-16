@@ -38,6 +38,15 @@ python3 holdout_evaluation.py
 python3 gate_report.py
 ```
 
+## RAG com Pinecone (memória vetorial)
+```bash
+# 1) indexar contexto local (notícias relevantes + métricas)
+python3 rag_pinecone.py index
+
+# 2) consultar contexto por pergunta
+python3 rag_pinecone.py query --text "geopolitical risk and gold direction"
+```
+
 ## Contexto global (EUA + Europa + Asia + minerais + estrutura produtiva)
 ```bash
 python3 coletar_contexto_global.py --fred-api-key SUA_FRED_API_KEY

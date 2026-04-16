@@ -45,6 +45,8 @@ required = [
     "requests",
     "dotenv",
     "metaapi_cloud_sdk",
+    "pinecone",
+    "sentence_transformers",
 ]
 
 missing = []
