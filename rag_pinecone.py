@@ -238,7 +238,8 @@ def parse_args() -> argparse.Namespace:
     index_parser.add_argument("--namespace", type=str, default="")
 
     query_parser = subparsers.add_parser("query", help="Consulta contexto no Pinecone")
-    query_parser.add_argument("--question", type=str, required=True)
+    query_parser.add_argument("--question", type=str, default="")
+    query_parser.add_argument("--text", type=str, default="")
     query_parser.add_argument("--embedding-model", type=str, default=DEFAULT_EMBEDDING_MODEL)
     query_parser.add_argument("--top-k", type=int, default=DEFAULT_TOP_K)
     query_parser.add_argument("--index-name", type=str, default="")
@@ -283,12 +284,15 @@ def main() -> None:
         return
 
     if args.command == "query":
+        question = (args.question or args.text or "").strip()
+        if not question:
+            raise ValueError("Informe a pergunta com --question ou --text")
         response = run_query(
             pc=pc,
             index_name=index_name,
             namespace=namespace,
             model_name=args.embedding_model,
-            question=args.question,
+            question=question,
             top_k=args.top_k,
         )
         print("✅ Resultado da consulta RAG:")
