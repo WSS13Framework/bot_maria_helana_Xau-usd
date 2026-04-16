@@ -57,6 +57,18 @@ python3 executor_demo_autonomo.py --symbol XAUUSD
 python3 executor_demo_autonomo.py --symbol XAUUSD --execute
 ```
 
+## Gestão institucional de posição aberta
+```bash
+# Apenas diagnostico (sem modificar posição)
+python3 gerenciar_posicao_autonomo.py --account-id SEU_ACCOUNT_ID --symbol XAUUSD
+
+# Breakeven e trailing em dry-run
+python3 gerenciar_posicao_autonomo.py --account-id SEU_ACCOUNT_ID --symbol XAUUSD --enable-breakeven --enable-trailing
+
+# Aplicar ajuste real de SL (somente quando validado)
+python3 gerenciar_posicao_autonomo.py --account-id SEU_ACCOUNT_ID --symbol XAUUSD --enable-breakeven --enable-trailing --execute
+```
+
 ## Executor seguro DEMO (MetaApi)
 ```bash
 # Simulação (não envia ordem)
