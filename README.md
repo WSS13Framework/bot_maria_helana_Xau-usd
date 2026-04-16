@@ -57,6 +57,11 @@ python3 executor_demo_autonomo.py --symbol XAUUSD
 python3 executor_demo_autonomo.py --symbol XAUUSD --execute
 ```
 
+Dica de protecao institucional: limitar lote maximo:
+```bash
+python3 executor_demo_autonomo.py --symbol XAUUSD --max-volume-cap 0.05
+```
+
 ## Painel SaaS (sem linha de comando)
 ```bash
 streamlit run dashboard_saas.py --server.port 8501 --server.address 0.0.0.0

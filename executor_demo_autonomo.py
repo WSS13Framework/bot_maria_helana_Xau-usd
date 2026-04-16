@@ -120,10 +120,13 @@ def _compute_volume(
     sl_points: float,
     point: float,
     specification: dict[str, Any],
+    max_volume_cap: float,
 ) -> tuple[float, float]:
     risk_usd = max(0.0, balance * risk_pct)
     min_volume = float(specification.get("minVolume") or 0.01)
     max_volume = float(specification.get("maxVolume") or 100.0)
+    if max_volume_cap > 0:
+        max_volume = min(max_volume, max_volume_cap)
     volume_step = float(specification.get("volumeStep") or min_volume or 0.01)
     tick_size = float(specification.get("tickSize") or point or 0.01)
     tick_value = specification.get("tickValue")
@@ -292,7 +295,12 @@ async def run_autonomous(args: argparse.Namespace) -> None:
         sl_points=sl_points,
         point=point,
         specification=specification,
+        max_volume_cap=args.max_volume_cap,
     )
+    if args.max_volume_cap > 0 and volume > args.max_volume_cap:
+        raise ValueError(
+            f"Volume calculado ({volume}) acima do max_volume_cap ({args.max_volume_cap})."
+        )
 
     ask = float(price.get("ask"))
     bid = float(price.get("bid"))
@@ -375,6 +383,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-train-rows", type=int, default=2500)
     parser.add_argument("--max-open-positions", type=int, default=1)
     parser.add_argument("--max-orders-per-day", type=int, default=3)
+    parser.add_argument("--max-volume-cap", type=float, default=0.10)
     parser.add_argument("--allow-live", action="store_true")
     parser.add_argument("--allow-unknown-account", action="store_true")
     parser.add_argument("--ignore-gate", action="store_true")
