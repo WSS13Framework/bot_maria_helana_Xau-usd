@@ -4,8 +4,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from sklearn.calibration import CalibratedClassifierCV
-from sklearn.ensemble import HistGradientBoostingClassifier
+from catboost import CatBoostClassifier
 from sklearn.metrics import (
     accuracy_score,
     average_precision_score,
@@ -103,15 +102,21 @@ def run_walk_forward(
         x_test = model_input.iloc[test_idx]
         y_test = target.iloc[test_idx]
 
-        base_model = HistGradientBoostingClassifier(
-            learning_rate=0.05,
-            max_depth=6,
-            max_iter=250,
+        model = CatBoostClassifier(
+            loss_function="Logloss",
+            eval_metric="AUC",
+            iterations=500,
+            learning_rate=0.03,
+            depth=6,
+            l2_leaf_reg=5.0,
+            random_strength=0.5,
+            subsample=0.8,
+            bootstrap_type="Bernoulli",
             random_state=42,
+            verbose=False,
         )
-        calibrated = CalibratedClassifierCV(base_model, method="isotonic", cv=3)
-        calibrated.fit(x_train, y_train)
-        y_prob = calibrated.predict_proba(x_test)[:, 1]
+        model.fit(x_train, y_train)
+        y_prob = model.predict_proba(x_test)[:, 1]
 
         fold_metrics = _compute_metrics(y_test, y_prob, threshold=decision_threshold)
         fold_metrics["fold"] = fold_id
