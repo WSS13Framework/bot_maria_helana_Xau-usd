@@ -1,7 +1,7 @@
 import requests
 from dotenv import dotenv_values
 
-from benzinga_filter import filter_relevant_news
+from benzinga_filter import filter_relevant_news, parse_benzinga_xml_news
 
 cfg = dotenv_values("/root/maria-helena/.env")
 key = cfg.get("BENZINGA_API_KEY", "").strip()
@@ -17,7 +17,13 @@ r = requests.get(url, params=params, timeout=20)
 print(f"Status: {r.status_code}")
 
 if r.status_code == 200:
-    payload = r.json()
+    content_type = r.headers.get("content-type", "").lower()
+    payload: list[dict] | dict
+    if "xml" in content_type:
+        payload = parse_benzinga_xml_news(r.text)
+    else:
+        payload = r.json()
+
     news = payload if isinstance(payload, list) else payload.get("data", [])
     filtered = filter_relevant_news(payload, min_keyword_hits=1)
     print(f"Notícias recebidas: {len(news)}")
