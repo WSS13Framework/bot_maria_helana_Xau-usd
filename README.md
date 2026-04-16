@@ -33,6 +33,8 @@ python3 risk_execution.py
 ```bash
 python3 purged_walkforward.py
 python3 robustness_grid.py
+python3 holdout_evaluation.py
+python3 gate_report.py
 ```
 
 Esse script de bootstrap cria/usa o venv em `/root/maria-helena/venv`,
