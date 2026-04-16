@@ -1,8 +1,10 @@
 import asyncio
 from dotenv import dotenv_values
-from metaapi_cloud_sdk import MetaApi
 
-async def main():
+
+async def main() -> None:
+    from metaapi_cloud_sdk import MetaApi
+
     cfg = dotenv_values("/root/maria-helena/.env")
     token = cfg.get("METAAPI_TOKEN", "").strip()
     account_id = cfg.get("METAAPI_ACCOUNT_ID", "").strip()
@@ -14,4 +16,6 @@ async def main():
     await account.wait_connected()
     print(f"✅ Conectado: {account.name}")
 
-asyncio.run(main())
+
+if __name__ == "__main__":
+    asyncio.run(main())
