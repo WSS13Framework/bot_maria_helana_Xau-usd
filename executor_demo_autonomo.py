@@ -51,6 +51,8 @@ def _feature_columns(frame: pd.DataFrame) -> list[str]:
         "rr_observed",
         "rr_viable",
         "trade_label",
+        "long_target",
+        "short_target",
     }
     numeric_columns = frame.select_dtypes(include=[np.number]).columns
     return [column for column in numeric_columns if column not in excluded]
@@ -62,6 +64,21 @@ def _prepare_training_targets(labeled: pd.DataFrame) -> pd.DataFrame:
     train["long_target"] = ((train["tb_label"] == 1) & (train["rr_viable"] == 1)).astype(int)
     train["short_target"] = ((train["tb_label"] == -1) & (train["rr_viable"] == 1)).astype(int)
     return train
+
+
+def _align_live_features(
+    train_frame: pd.DataFrame,
+    live_frame: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame, list[str]]:
+    train_features = _feature_columns(train_frame)
+    live_features = _feature_columns(live_frame)
+    common_features = [column for column in train_features if column in live_features]
+    if not common_features:
+        raise ValueError("Nenhuma feature comum entre treino e inferência ao vivo.")
+
+    x_train = train_frame[common_features].copy().ffill().bfill().fillna(0.0)
+    x_live_all = live_frame[common_features].copy().ffill().bfill().fillna(0.0)
+    return x_train, x_live_all, common_features
 
 
 def _fit_predict_probability(
@@ -176,12 +193,11 @@ async def run_autonomous(args: argparse.Namespace) -> None:
             f"Necessário >= {args.min_train_rows}"
         )
 
-    features = _feature_columns(train_frame)
-    if not features:
-        raise ValueError("Nenhuma feature numérica disponível para inferência.")
-
-    x_train = train_frame[features].copy().ffill().bfill().fillna(0.0)
-    x_live_all = feature_frame[features].copy().ffill().bfill().fillna(0.0)
+    # Use labeled frame for live inference so ATR is available.
+    x_train, x_live_all, features = _align_live_features(
+        train_frame=train_frame,
+        live_frame=labeled_frame,
+    )
     x_live = x_live_all.iloc[[-1]]
 
     p_long = _fit_predict_probability(x_train, train_frame["long_target"], x_live)
