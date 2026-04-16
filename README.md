@@ -37,6 +37,15 @@ python3 holdout_evaluation.py
 python3 gate_report.py
 ```
 
+## Execução DEMO (segura/autônoma)
+```bash
+# Dry run seguro (não envia ordem)
+python3 executor_demo_autonomo.py --symbol XAUUSD
+
+# Enviar ordem na DEMO (somente se gate aprovado)
+python3 executor_demo_autonomo.py --symbol XAUUSD --execute
+```
+
 ## Executor seguro DEMO (MetaApi)
 ```bash
 # Simulação (não envia ordem)
