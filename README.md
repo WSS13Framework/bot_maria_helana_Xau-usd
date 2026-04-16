@@ -37,5 +37,19 @@ python3 holdout_evaluation.py
 python3 gate_report.py
 ```
 
+## Executor seguro DEMO (MetaApi)
+```bash
+# Simulação (não envia ordem)
+python3 executor_demo_seguro.py --side buy --volume 0.01 --sl-points 300 --tp-points 450
+
+# Envio real para DEMO (somente se passar no dry-run)
+python3 executor_demo_seguro.py --side buy --volume 0.01 --sl-points 300 --tp-points 450 --execute
+```
+
+Por segurança, o executor bloqueia conta LIVE por padrão. Para usar conta específica:
+```bash
+python3 executor_demo_seguro.py --account-id 862eb0f6-f6b7-4ab0-afdf-0dec095f6c86 --side buy --volume 0.01
+```
+
 Esse script de bootstrap cria/usa o venv em `/root/maria-helena/venv`,
 instala as dependencias de ML e valida imports criticos.
