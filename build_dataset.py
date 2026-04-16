@@ -116,8 +116,8 @@ def _add_news_window_features(base_frame: pd.DataFrame, news_events: pd.DataFram
     if news_events.empty:
         return frame
 
-    base_times_ns = frame["time"].view("int64").to_numpy()
-    news_times_ns = news_events["time"].view("int64").to_numpy()
+    base_times_ns = frame["time"].astype("int64").to_numpy()
+    news_times_ns = news_events["time"].astype("int64").to_numpy()
     one_hour_ns = int(pd.Timedelta(hours=1).value)
     four_hours_ns = int(pd.Timedelta(hours=4).value)
 

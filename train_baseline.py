@@ -88,7 +88,7 @@ def run_walk_forward(
         raise ValueError("No numeric feature columns available for training.")
 
     model_input = frame[feature_columns].copy()
-    model_input = model_input.fillna(method="ffill").fillna(method="bfill").fillna(0.0)
+    model_input = model_input.ffill().bfill().fillna(0.0)
     target = frame["trade_label"].astype(int)
 
     splits = _walk_forward_splits(len(frame), n_splits=n_splits, min_train_rows=min_train_rows)
