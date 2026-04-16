@@ -142,12 +142,13 @@ async def run_manager(args: argparse.Namespace) -> None:
         )
 
     await account.wait_connected()
-    connection = account.get_rpc_connection()
+    connection = account.get_streaming_connection()
     await connection.connect()
     await connection.wait_synchronized()
 
     symbol = args.symbol.upper()
-    positions = await connection.get_positions()
+    terminal_state = connection.terminal_state
+    positions = terminal_state.positions
     symbol_positions = [p for p in positions if (p.get("symbol") or "").upper() == symbol]
     if not symbol_positions:
         payload = {
@@ -180,7 +181,6 @@ async def run_manager(args: argparse.Namespace) -> None:
     if atr_value <= 0:
         raise ValueError("ATR inválido no dataset rotulado.")
 
-    terminal_state = connection.terminal_state
     spec = terminal_state.specification(symbol=symbol) or {}
     point = _safe_float(spec.get("point"), default=0.01)
     entry_to_current = (current_price - open_price) if side in {"POSITION_TYPE_BUY", "ORDER_TYPE_BUY"} else (open_price - current_price)
