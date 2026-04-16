@@ -58,6 +58,7 @@ def index_local_faiss(
     matrix = np.array([item["values"] for item in vectors], dtype=np.float32)
     index = faiss.IndexFlatIP(dim)
     index.add(matrix)
+    faiss_index_path.parent.mkdir(parents=True, exist_ok=True)
     faiss.write_index(index, str(faiss_index_path))
 
     conn = _ensure_local_rag_store(sqlite_db)
