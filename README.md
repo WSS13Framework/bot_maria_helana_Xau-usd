@@ -38,6 +38,16 @@ python3 holdout_evaluation.py
 python3 gate_report.py
 ```
 
+## Contexto global (EUA + Europa + Asia + minerais + estrutura produtiva)
+```bash
+python3 coletar_contexto_global.py --fred-api-key SUA_FRED_API_KEY
+```
+
+Para habilitar no dataset:
+```bash
+python3 build_dataset.py
+```
+
 ## Execução DEMO (segura/autônoma)
 ```bash
 # Dry run seguro (não envia ordem)

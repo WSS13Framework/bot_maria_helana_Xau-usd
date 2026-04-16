@@ -1,5 +1,6 @@
 import argparse
 import json
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -8,6 +9,12 @@ import requests
 
 DATA_DIR = Path("/root/maria-helena/data")
 DEFAULT_TIMEOUT = 20
+DEFAULT_YAHOO_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    )
+}
 
 GLOBAL_INDEX_SYMBOLS = {
     "us_sp500": "^GSPC",
@@ -46,7 +53,20 @@ FRED_STRUCTURAL_SERIES = {
 def _fetch_yahoo_daily(symbol: str, range_period: str = "5y") -> pd.DataFrame:
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
     params = {"range": range_period, "interval": "1d"}
-    response = requests.get(url, params=params, timeout=DEFAULT_TIMEOUT)
+    response = None
+    for attempt in range(4):
+        response = requests.get(
+            url,
+            params=params,
+            headers=DEFAULT_YAHOO_HEADERS,
+            timeout=DEFAULT_TIMEOUT,
+        )
+        if response.status_code != 429:
+            break
+        sleep_seconds = 2**attempt
+        time.sleep(sleep_seconds)
+    if response is None:
+        return pd.DataFrame(columns=["time", "close"])
     response.raise_for_status()
     payload = response.json()
     result = payload.get("chart", {}).get("result", [])
@@ -73,13 +93,15 @@ def _fetch_yahoo_daily(symbol: str, range_period: str = "5y") -> pd.DataFrame:
     return pd.DataFrame(rows).sort_values("time").drop_duplicates("time")
 
 
-def _build_market_context_frame(symbol_map: dict[str, str]) -> pd.DataFrame:
+def _build_market_context_frame(symbol_map: dict[str, str], yahoo_sleep_seconds: float) -> pd.DataFrame:
     merged: pd.DataFrame | None = None
     for key, symbol in symbol_map.items():
         try:
             frame = _fetch_yahoo_daily(symbol)
         except Exception as exc:  # noqa: BLE001
             print(f"⚠️ Falha ao coletar {key} ({symbol}): {exc}")
+            if yahoo_sleep_seconds > 0:
+                time.sleep(yahoo_sleep_seconds)
             continue
 
         if frame.empty:
@@ -98,6 +120,8 @@ def _build_market_context_frame(symbol_map: dict[str, str]) -> pd.DataFrame:
             merged = enriched
         else:
             merged = merged.merge(enriched, on="time", how="outer")
+        if yahoo_sleep_seconds > 0:
+            time.sleep(yahoo_sleep_seconds)
 
     if merged is None:
         return pd.DataFrame(columns=["time"])
@@ -106,14 +130,17 @@ def _build_market_context_frame(symbol_map: dict[str, str]) -> pd.DataFrame:
 
 def _fetch_fred_series(series_id: str, api_key: str | None = None) -> pd.DataFrame:
     url = "https://api.stlouisfed.org/fred/series/observations"
+    if not api_key:
+        raise ValueError(
+            "FRED API key ausente. Defina FRED_API_KEY no .env ou use --fred-api-key."
+        )
     params = {
         "series_id": series_id,
+        "api_key": api_key,
         "file_type": "json",
         "sort_order": "asc",
         "limit": 100000,
     }
-    if api_key:
-        params["api_key"] = api_key
 
     response = requests.get(url, params=params, timeout=DEFAULT_TIMEOUT)
     response.raise_for_status()
@@ -166,6 +193,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--output-dir", type=Path, default=DATA_DIR)
     parser.add_argument("--fred-api-key", type=str, default="")
+    parser.add_argument("--yahoo-sleep-seconds", type=float, default=0.4)
     return parser.parse_args()
 
 
@@ -174,8 +202,15 @@ def main() -> None:
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     market_symbols = {**GLOBAL_INDEX_SYMBOLS, **CRITICAL_MINERAL_SYMBOLS}
-    market_context = _build_market_context_frame(market_symbols)
-    structural_context = _build_structural_frame(api_key=args.fred_api_key.strip() or None)
+    market_context = _build_market_context_frame(
+        market_symbols, yahoo_sleep_seconds=max(0.0, args.yahoo_sleep_seconds)
+    )
+
+    fred_key = args.fred_api_key.strip()
+    if not fred_key:
+        env_values = dotenv_values("/root/maria-helena/.env")
+        fred_key = (env_values.get("FRED_API_KEY") or "").strip()
+    structural_context = _build_structural_frame(api_key=fred_key or None)
 
     market_output = args.output_dir / "global_context_daily.csv"
     structural_output = args.output_dir / "global_structural_fred.csv"
