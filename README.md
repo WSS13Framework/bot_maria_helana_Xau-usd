@@ -47,6 +47,15 @@ python3 rag_pinecone.py index
 python3 rag_pinecone.py query --text "geopolitical risk and gold direction"
 ```
 
+## RAG com fallback automático (Pinecone -> FAISS/SQLite)
+```bash
+# Indexação automática (usa Pinecone se chave disponível; senão usa local)
+python3 rag_retriever.py index --backend auto
+
+# Consulta automática
+python3 rag_retriever.py query --backend auto --text "gold fed inflation risk regime" --top-k 10
+```
+
 ## Knowledge Graph com Neo4j
 ```bash
 # sincronizar dados locais no grafo

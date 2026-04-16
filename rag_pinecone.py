@@ -1,9 +1,12 @@
 import argparse
 import hashlib
 import json
+import sqlite3
 from pathlib import Path
 from typing import Any
 
+import faiss
+import numpy as np
 from dotenv import dotenv_values
 from pinecone import Pinecone, ServerlessSpec
 from sentence_transformers import SentenceTransformer
@@ -14,6 +17,8 @@ DEFAULT_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 DEFAULT_DIMENSION = 384
 DEFAULT_METRIC = "cosine"
 DEFAULT_TOP_K = 5
+DEFAULT_FAISS_INDEX_PATH = DATA_DIR / "rag_faiss.index"
+DEFAULT_FAISS_SQLITE_PATH = DATA_DIR / "rag_faiss.sqlite"
 
 STRUCTURED_FILES = (
     "gate_report.json",
@@ -222,6 +227,121 @@ def run_query(
     return response
 
 
+def _faiss_init(index_path: Path, dimension: int) -> faiss.IndexFlatIP:
+    if index_path.exists():
+        return faiss.read_index(str(index_path))
+    return faiss.IndexFlatIP(dimension)
+
+
+def _faiss_prepare_sqlite(sqlite_path: Path) -> sqlite3.Connection:
+    sqlite_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(sqlite_path)
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS rag_docs (
+            vector_id INTEGER PRIMARY KEY,
+            doc_id TEXT NOT NULL,
+            source TEXT,
+            doc_type TEXT,
+            metadata_json TEXT,
+            text TEXT
+        )
+        """
+    )
+    conn.commit()
+    return conn
+
+
+def _upsert_faiss(
+    vectors: list[dict[str, Any]],
+    index_path: Path,
+    sqlite_path: Path,
+    dimension: int,
+) -> None:
+    if not vectors:
+        print("⚠️ Nenhum vetor para indexar no fallback FAISS.")
+        return
+    index = _faiss_init(index_path, dimension=dimension)
+    conn = _faiss_prepare_sqlite(sqlite_path)
+
+    for item in vectors:
+        vector = np.array(item["values"], dtype=np.float32).reshape(1, -1)
+        if vector.shape[1] != dimension:
+            raise ValueError(
+                f"Dimensão FAISS incompatível: vetor {vector.shape[1]} != {dimension}"
+            )
+        next_id = index.ntotal
+        index.add(vector)
+        metadata = item.get("metadata", {})
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO rag_docs(vector_id, doc_id, source, doc_type, metadata_json, text)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                int(next_id),
+                str(item["id"]),
+                str(metadata.get("source", "")),
+                str(metadata.get("type", "")),
+                json.dumps(metadata, ensure_ascii=False),
+                str(metadata.get("text", "")),
+            ),
+        )
+
+    conn.commit()
+    conn.close()
+    faiss.write_index(index, str(index_path))
+    print(f"✅ FAISS fallback salvo em {index_path}")
+    print(f"✅ Metadata fallback salva em {sqlite_path}")
+
+
+def _query_faiss(
+    question: str,
+    model_name: str,
+    top_k: int,
+    index_path: Path,
+    sqlite_path: Path,
+) -> dict[str, Any]:
+    if not index_path.exists() or not sqlite_path.exists():
+        raise ValueError(
+            f"Fallback FAISS indisponível. Index: {index_path} | SQLite: {sqlite_path}"
+        )
+    index = faiss.read_index(str(index_path))
+    model = SentenceTransformer(model_name)
+    query_vector = model.encode([question], normalize_embeddings=True)
+    query_vector = np.array(query_vector, dtype=np.float32)
+    distances, indices = index.search(query_vector, top_k)
+
+    conn = sqlite3.connect(sqlite_path)
+    results = []
+    for score, idx in zip(distances[0], indices[0]):
+        if int(idx) < 0:
+            continue
+        row = conn.execute(
+            "SELECT doc_id, source, doc_type, metadata_json, text FROM rag_docs WHERE vector_id = ?",
+            (int(idx),),
+        ).fetchone()
+        if not row:
+            continue
+        doc_id, source, doc_type, metadata_json, text = row
+        try:
+            metadata = json.loads(metadata_json or "{}")
+        except json.JSONDecodeError:
+            metadata = {}
+        results.append(
+            {
+                "id": doc_id,
+                "score": float(score),
+                "source": source,
+                "type": doc_type,
+                "metadata": metadata,
+                "text": text,
+            }
+        )
+    conn.close()
+    return {"matches": results}
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="RAG Pinecone para contexto institucional do Maria Helena.")
     parser.add_argument("--env-file", type=Path, default=DEFAULT_ENV_PATH)
@@ -236,6 +356,9 @@ def parse_args() -> argparse.Namespace:
     index_parser.add_argument("--region", type=str, default="us-east-1")
     index_parser.add_argument("--index-name", type=str, default="")
     index_parser.add_argument("--namespace", type=str, default="")
+    index_parser.add_argument("--store", type=str, choices=("pinecone", "faiss", "auto"), default="auto")
+    index_parser.add_argument("--faiss-index-path", type=Path, default=DEFAULT_FAISS_INDEX_PATH)
+    index_parser.add_argument("--faiss-sqlite-path", type=Path, default=DEFAULT_FAISS_SQLITE_PATH)
 
     query_parser = subparsers.add_parser("query", help="Consulta contexto no Pinecone")
     query_parser.add_argument("--question", type=str, default="")
@@ -244,6 +367,9 @@ def parse_args() -> argparse.Namespace:
     query_parser.add_argument("--top-k", type=int, default=DEFAULT_TOP_K)
     query_parser.add_argument("--index-name", type=str, default="")
     query_parser.add_argument("--namespace", type=str, default="")
+    query_parser.add_argument("--store", type=str, choices=("pinecone", "faiss", "auto"), default="auto")
+    query_parser.add_argument("--faiss-index-path", type=Path, default=DEFAULT_FAISS_INDEX_PATH)
+    query_parser.add_argument("--faiss-sqlite-path", type=Path, default=DEFAULT_FAISS_SQLITE_PATH)
 
     return parser.parse_args()
 
@@ -253,48 +379,111 @@ def main() -> None:
     cfg = dotenv_values(args.env_file)
 
     pinecone_api_key = (cfg.get("PINECONE_API_KEY") or "").strip()
-    if not pinecone_api_key:
-        raise ValueError("PINECONE_API_KEY não encontrado no .env")
 
     index_name = getattr(args, "index_name", "") or (cfg.get("PINECONE_INDEX_NAME") or "").strip()
     namespace = getattr(args, "namespace", "") or (cfg.get("PINECONE_NAMESPACE") or "maria-helena").strip()
-    if not index_name:
+    if args.store in {"pinecone", "auto"} and not index_name and args.store == "pinecone":
         raise ValueError("Defina PINECONE_INDEX_NAME no .env ou --index-name")
-
-    pc = Pinecone(api_key=pinecone_api_key)
 
     if args.command == "index":
         docs = load_documents(args.data_dir)
         print(f"Documentos carregados: {len(docs)}")
         vectors = embed_documents(args.embedding_model, docs)
-        ensure_index(
-            pc=pc,
-            index_name=index_name,
-            dimension=args.dimension,
-            metric=args.metric,
-            cloud=args.cloud,
-            region=args.region,
-        )
-        upsert_vectors(
-            pc=pc,
-            index_name=index_name,
-            namespace=namespace,
-            vectors=vectors,
-        )
+
+        if args.store == "faiss":
+            _upsert_faiss(
+                vectors=vectors,
+                index_path=args.faiss_index_path,
+                sqlite_path=args.faiss_sqlite_path,
+                dimension=args.dimension,
+            )
+            return
+
+        if args.store in {"pinecone", "auto"}:
+            try:
+                if not pinecone_api_key:
+                    raise ValueError("PINECONE_API_KEY não encontrado no .env")
+                if not index_name:
+                    raise ValueError("Defina PINECONE_INDEX_NAME no .env ou --index-name")
+                pc = Pinecone(api_key=pinecone_api_key)
+                ensure_index(
+                    pc=pc,
+                    index_name=index_name,
+                    dimension=args.dimension,
+                    metric=args.metric,
+                    cloud=args.cloud,
+                    region=args.region,
+                )
+                upsert_vectors(
+                    pc=pc,
+                    index_name=index_name,
+                    namespace=namespace,
+                    vectors=vectors,
+                )
+                return
+            except Exception as exc:  # noqa: BLE001
+                if args.store == "pinecone":
+                    raise
+                print(f"⚠️ Pinecone indisponível, usando fallback FAISS. Motivo: {exc}")
+                _upsert_faiss(
+                    vectors=vectors,
+                    index_path=args.faiss_index_path,
+                    sqlite_path=args.faiss_sqlite_path,
+                    dimension=args.dimension,
+                )
+                return
         return
 
     if args.command == "query":
         question = (args.question or args.text or "").strip()
         if not question:
             raise ValueError("Informe a pergunta com --question ou --text")
-        response = run_query(
-            pc=pc,
-            index_name=index_name,
-            namespace=namespace,
-            model_name=args.embedding_model,
-            question=question,
-            top_k=args.top_k,
-        )
+
+        if args.store == "faiss":
+            response = _query_faiss(
+                question=question,
+                model_name=args.embedding_model,
+                top_k=args.top_k,
+                index_path=args.faiss_index_path,
+                sqlite_path=args.faiss_sqlite_path,
+            )
+            print("✅ Resultado da consulta RAG (FAISS fallback):")
+            print(json.dumps(response, ensure_ascii=False, indent=2, default=str))
+            return
+
+        if args.store in {"pinecone", "auto"}:
+            try:
+                if not pinecone_api_key:
+                    raise ValueError("PINECONE_API_KEY não encontrado no .env")
+                if not index_name:
+                    raise ValueError("Defina PINECONE_INDEX_NAME no .env ou --index-name")
+                pc = Pinecone(api_key=pinecone_api_key)
+                response = run_query(
+                    pc=pc,
+                    index_name=index_name,
+                    namespace=namespace,
+                    model_name=args.embedding_model,
+                    question=question,
+                    top_k=args.top_k,
+                )
+                print("✅ Resultado da consulta RAG (Pinecone):")
+                print(json.dumps(response, ensure_ascii=False, indent=2, default=str))
+                return
+            except Exception as exc:  # noqa: BLE001
+                if args.store == "pinecone":
+                    raise
+                print(f"⚠️ Pinecone indisponível, usando fallback FAISS. Motivo: {exc}")
+                response = _query_faiss(
+                    question=question,
+                    model_name=args.embedding_model,
+                    top_k=args.top_k,
+                    index_path=args.faiss_index_path,
+                    sqlite_path=args.faiss_sqlite_path,
+                )
+                print("✅ Resultado da consulta RAG (FAISS fallback):")
+                print(json.dumps(response, ensure_ascii=False, indent=2, default=str))
+                return
+
         print("✅ Resultado da consulta RAG:")
         print(json.dumps(response, ensure_ascii=False, indent=2, default=str))
         return

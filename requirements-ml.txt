@@ -8,4 +8,6 @@ metaapi-cloud-sdk
 streamlit
 plotly
 pinecone
+sentence-transformers
+faiss-cpu
 neo4j
