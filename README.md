@@ -11,3 +11,11 @@ Sistema de inteligencia para trading de ouro XAU/USD.
 ```bash
 cp .env.example .env
 ```
+
+## Bootstrap (Cloud/Servidor)
+```bash
+bash scripts/bootstrap_env.sh
+```
+
+Esse script cria/usa o venv em `/root/maria-helena/venv`, instala as dependencias
+de ML e valida imports criticos.
