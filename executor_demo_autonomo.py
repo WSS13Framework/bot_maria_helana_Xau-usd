@@ -290,6 +290,96 @@ def _query_rag_evidence(args: argparse.Namespace, query_text: str) -> dict[str, 
     return base_payload
 
 
+def _parse_hhmm_to_minutes(value: str) -> int:
+    text = str(value).strip()
+    parts = text.split(":")
+    if len(parts) != 2:
+        raise ValueError(f"Horario invalido: {value}")
+    hour = int(parts[0])
+    minute = int(parts[1])
+    if hour < 0 or hour > 23 or minute < 0 or minute > 59:
+        raise ValueError(f"Horario invalido: {value}")
+    return (hour * 60) + minute
+
+
+def _parse_session_windows(window_spec: str) -> list[tuple[int, int]]:
+    windows: list[tuple[int, int]] = []
+    for raw_item in str(window_spec or "").split(","):
+        item = raw_item.strip()
+        if not item:
+            continue
+        if "-" not in item:
+            raise ValueError(f"Janela invalida: {item}")
+        start_text, end_text = item.split("-", 1)
+        start = _parse_hhmm_to_minutes(start_text)
+        end = _parse_hhmm_to_minutes(end_text)
+        windows.append((start, end))
+    return windows
+
+
+def _minute_inside_windows(minute_of_day: int, windows: list[tuple[int, int]]) -> bool:
+    if not windows:
+        return True
+    for start, end in windows:
+        if start == end:
+            continue
+        if start < end:
+            if start <= minute_of_day < end:
+                return True
+        else:
+            # Overnight window, e.g. 22:00-02:00
+            if minute_of_day >= start or minute_of_day < end:
+                return True
+    return False
+
+
+def _session_gate_status(
+    now_utc: datetime,
+    windows: list[tuple[int, int]],
+    friday_close_hour_utc: float,
+    sunday_open_hour_utc: float,
+    allow_rollover_window: bool,
+) -> tuple[bool, str]:
+    weekday = now_utc.weekday()
+    hour_fraction = now_utc.hour + (now_utc.minute / 60.0)
+    minute_of_day = (now_utc.hour * 60) + now_utc.minute
+
+    if weekday == 5:
+        return False, "weekend_closed_saturday"
+    if weekday == 6 and hour_fraction < sunday_open_hour_utc:
+        return False, "weekend_closed_sunday_before_open"
+    if weekday == 4 and hour_fraction >= friday_close_hour_utc:
+        return False, "weekend_closed_friday_after_close"
+
+    # Typical low-liquidity/rollover zone for metals.
+    if not allow_rollover_window:
+        rollover_start = (20 * 60) + 55
+        rollover_end = (22 * 60) + 5
+        if rollover_start <= minute_of_day < rollover_end:
+            return False, "rollover_liquidity_block"
+
+    if not _minute_inside_windows(minute_of_day, windows):
+        return False, "outside_configured_session_windows"
+    return True, "session_ok"
+
+
+def _atr_volatility_ratio(frame: pd.DataFrame, lookback: int) -> tuple[float, float, float]:
+    atr_series = pd.to_numeric(frame.get("atr"), errors="coerce")
+    atr_series = atr_series.replace([np.inf, -np.inf], np.nan).dropna()
+    if atr_series.empty:
+        return 0.0, 0.0, 0.0
+
+    current = float(atr_series.iloc[-1])
+    if lookback > 0:
+        reference_slice = atr_series.iloc[-lookback:]
+    else:
+        reference_slice = atr_series
+    reference = float(reference_slice.median()) if not reference_slice.empty else 0.0
+    if reference <= 0:
+        return current, reference, 0.0
+    return current, reference, float(current / reference)
+
+
 def _compute_volume(
     balance: float,
     risk_pct: float,
@@ -379,6 +469,7 @@ async def run_autonomous(args: argparse.Namespace) -> None:
     )
     x_live = x_live_all.iloc[[-1]]
 
+    symbol = args.symbol.upper()
     latest_feature = feature_frame.iloc[-1]
     latest_labeled = labeled_frame.iloc[-1]
     p_long = _fit_predict_probability(x_train, train_frame["long_target"], x_live)
@@ -422,6 +513,34 @@ async def run_autonomous(args: argparse.Namespace) -> None:
             args.risk_per_trade_pct * shock_risk_multiplier_applied,
         )
 
+    atr_current, atr_reference, atr_volatility_ratio = _atr_volatility_ratio(
+        labeled_frame,
+        lookback=max(20, int(args.atr_regime_lookback)),
+    )
+    volatility_threshold_add_applied = 0.0
+    volatility_risk_multiplier_applied = 1.0
+    blocked_by_volatility_guardrail = False
+    volatility_gate_reason = "volatility_guardrail_not_enforced"
+    if args.enforce_volatility_guardrail:
+        if atr_volatility_ratio >= args.volatility_max_ratio:
+            blocked_by_volatility_guardrail = True
+            volatility_gate_reason = "atr_extreme_volatility_block"
+        elif atr_volatility_ratio >= args.volatility_warning_ratio:
+            volatility_gate_reason = "atr_high_volatility_adjusted"
+            volatility_threshold_add_applied = max(0.0, args.volatility_threshold_add)
+            effective_threshold = float(
+                np.clip(effective_threshold + volatility_threshold_add_applied, 0.0, 0.95)
+            )
+            volatility_risk_multiplier_applied = float(
+                np.clip(args.volatility_risk_mult, args.min_volatility_risk_mult, 1.0)
+            )
+            effective_risk_pct = max(
+                args.min_risk_per_trade_pct,
+                effective_risk_pct * volatility_risk_multiplier_applied,
+            )
+        else:
+            volatility_gate_reason = "atr_volatility_ok"
+
     side = None
     blocked_by_exogenous_bias = False
     if p_long >= effective_threshold and p_long >= p_short + args.edge_margin:
@@ -440,6 +559,70 @@ async def run_autonomous(args: argparse.Namespace) -> None:
         ):
             blocked_by_exogenous_bias = True
             side = None
+
+    if side is not None and blocked_by_volatility_guardrail:
+        side = None
+
+    blocked_by_session_window = False
+    session_gate_reason = "session_gate_not_enforced"
+    if args.enforce_session_window:
+        windows = _parse_session_windows(args.session_windows)
+        now_utc = datetime.now(timezone.utc)
+        session_ok, session_gate_reason = _session_gate_status(
+            now_utc=now_utc,
+            windows=windows,
+            friday_close_hour_utc=args.friday_close_hour_utc,
+            sunday_open_hour_utc=args.sunday_open_hour_utc,
+            allow_rollover_window=args.allow_rollover_window,
+        )
+        if not session_ok and side is not None:
+            blocked_by_session_window = True
+            side = None
+
+    if side is None:
+        no_trade_payload = {
+            "event": "no_trade_signal",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "account_id": account_id,
+            "symbol": symbol,
+            "p_long": p_long,
+            "p_short": p_short,
+            "threshold": args.threshold,
+            "effective_threshold": effective_threshold,
+            "edge_margin": args.edge_margin,
+            "blocked_by_exogenous_bias": blocked_by_exogenous_bias,
+            "blocked_by_volatility_guardrail": blocked_by_volatility_guardrail,
+            "volatility_gate_reason": volatility_gate_reason,
+            "blocked_by_session_window": blocked_by_session_window,
+            "session_gate_reason": session_gate_reason,
+            "session_windows": args.session_windows,
+            "atr_current": atr_current,
+            "atr_reference_median": atr_reference,
+            "atr_volatility_ratio": atr_volatility_ratio,
+            "volatility_threshold_add_applied": volatility_threshold_add_applied,
+            "volatility_risk_multiplier_applied": volatility_risk_multiplier_applied,
+            "exogenous_shock_flag": exogenous_shock_flag,
+            "exogenous_shock_score": exogenous_shock_score,
+            "exogenous_gold_bias": exogenous_gold_bias,
+            "exogenous_threshold_premium": exogenous_threshold_premium,
+            "exogenous_risk_multiplier": exogenous_risk_multiplier,
+            **rag_evidence,
+            "feature_time": latest_feature["time"].isoformat(),
+        }
+        _append_log(args.log_path, no_trade_payload)
+        _append_feedback(
+            args.feedback_log_path,
+            {
+                **no_trade_payload,
+                "feedback_type": "signal",
+                "decision": "no_trade",
+                "source": "executor_demo_autonomo",
+            },
+        )
+        print("⚠️ Sem trade: sinal sem confiança suficiente.")
+        print(json.dumps(no_trade_payload, indent=2, ensure_ascii=False))
+        return
+
     atr_value = float(latest_labeled.get("atr") or 0.0)
     if atr_value <= 0:
         raise ValueError("ATR inválido no último candle; não é possível calcular SL dinâmico.")
@@ -466,7 +649,6 @@ async def run_autonomous(args: argparse.Namespace) -> None:
     await connection.wait_synchronized()
 
     positions = await connection.get_positions()
-    symbol = args.symbol.upper()
     symbol_positions = [
         position for position in positions if (position.get("symbol") or "").upper() == symbol
     ]
@@ -483,40 +665,6 @@ async def run_autonomous(args: argparse.Namespace) -> None:
             f"⚠️ Execução bloqueada: limite diário atingido "
             f"({today_count}/{args.max_orders_per_day})."
         )
-        return
-
-    if side is None:
-        no_trade_payload = {
-            "event": "no_trade_signal",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "account_id": account_id,
-            "symbol": symbol,
-            "p_long": p_long,
-            "p_short": p_short,
-            "threshold": args.threshold,
-            "effective_threshold": effective_threshold,
-            "edge_margin": args.edge_margin,
-            "blocked_by_exogenous_bias": blocked_by_exogenous_bias,
-            "exogenous_shock_flag": exogenous_shock_flag,
-            "exogenous_shock_score": exogenous_shock_score,
-            "exogenous_gold_bias": exogenous_gold_bias,
-            "exogenous_threshold_premium": exogenous_threshold_premium,
-            "exogenous_risk_multiplier": exogenous_risk_multiplier,
-            **rag_evidence,
-            "feature_time": latest_feature["time"].isoformat(),
-        }
-        _append_log(args.log_path, no_trade_payload)
-        _append_feedback(
-            args.feedback_log_path,
-            {
-                **no_trade_payload,
-                "feedback_type": "signal",
-                "decision": "no_trade",
-                "source": "executor_demo_autonomo",
-            },
-        )
-        print("⚠️ Sem trade: sinal sem confiança suficiente.")
-        print(json.dumps(no_trade_payload, indent=2, ensure_ascii=False))
         return
 
     account_info = await connection.get_account_information()
@@ -580,6 +728,13 @@ async def run_autonomous(args: argparse.Namespace) -> None:
         "effective_threshold": effective_threshold,
         "shock_threshold_add_applied": shock_threshold_add_applied,
         "edge_margin": args.edge_margin,
+        "blocked_by_volatility_guardrail": blocked_by_volatility_guardrail,
+        "volatility_gate_reason": volatility_gate_reason,
+        "atr_current": atr_current,
+        "atr_reference_median": atr_reference,
+        "atr_volatility_ratio": atr_volatility_ratio,
+        "volatility_threshold_add_applied": volatility_threshold_add_applied,
+        "volatility_risk_multiplier_applied": volatility_risk_multiplier_applied,
         "exogenous_shock_flag": exogenous_shock_flag,
         "exogenous_shock_score": exogenous_shock_score,
         "exogenous_gold_bias": exogenous_gold_bias,
@@ -633,6 +788,13 @@ async def run_autonomous(args: argparse.Namespace) -> None:
         "p_short": p_short,
         "effective_threshold": effective_threshold,
         "effective_risk_per_trade_pct": effective_risk_pct,
+        "blocked_by_volatility_guardrail": blocked_by_volatility_guardrail,
+        "volatility_gate_reason": volatility_gate_reason,
+        "atr_current": atr_current,
+        "atr_reference_median": atr_reference,
+        "atr_volatility_ratio": atr_volatility_ratio,
+        "volatility_threshold_add_applied": volatility_threshold_add_applied,
+        "volatility_risk_multiplier_applied": volatility_risk_multiplier_applied,
         "exogenous_shock_flag": exogenous_shock_flag,
         "exogenous_shock_score": exogenous_shock_score,
         "exogenous_gold_bias": exogenous_gold_bias,
@@ -678,6 +840,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-shock-risk-mult", type=float, default=0.35)
     parser.add_argument("--disable-exogenous-guardrail", action="store_true")
     parser.add_argument("--disable-bias-block", action="store_true")
+    parser.add_argument("--enforce-session-window", action="store_true")
+    parser.add_argument("--session-windows", type=str, default="06:00-09:00,12:00-16:30")
+    parser.add_argument("--friday-close-hour-utc", type=float, default=21.0)
+    parser.add_argument("--sunday-open-hour-utc", type=float, default=22.0)
+    parser.add_argument("--allow-rollover-window", action="store_true")
+    parser.add_argument("--enforce-volatility-guardrail", action="store_true")
+    parser.add_argument("--atr-regime-lookback", type=int, default=288)
+    parser.add_argument("--volatility-warning-ratio", type=float, default=1.6)
+    parser.add_argument("--volatility-max-ratio", type=float, default=2.4)
+    parser.add_argument("--volatility-threshold-add", type=float, default=0.03)
+    parser.add_argument("--volatility-risk-mult", type=float, default=0.70)
+    parser.add_argument("--min-volatility-risk-mult", type=float, default=0.40)
     parser.add_argument("--allow-live", action="store_true")
     parser.add_argument("--allow-unknown-account", action="store_true")
     parser.add_argument("--ignore-gate", action="store_true")

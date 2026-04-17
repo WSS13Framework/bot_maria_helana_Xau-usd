@@ -106,6 +106,17 @@ Guardrail exogeno (choque externo) no executor:
 python3 executor_demo_autonomo.py --symbol XAUUSD --shock-threshold-add 0.05 --shock-risk-mult 0.60
 ```
 
+Janela de mercado + bloqueio de volatilidade extrema (autonomo institucional):
+```bash
+python3 executor_demo_autonomo.py \
+  --symbol XAUUSD \
+  --enforce-session-window \
+  --session-windows "00:00-03:00,06:00-09:00,12:00-16:30" \
+  --volatility-block-enabled \
+  --atr-vol-window 288 \
+  --atr-vol-z-threshold 2.5
+```
+
 Evidencia RAG no plano de ordem (Pinecone -> FAISS fallback):
 ```bash
 python3 executor_demo_autonomo.py --symbol XAUUSD --enable-rag-evidence --rag-top-k 3

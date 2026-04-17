@@ -19,6 +19,14 @@ EXECUTOR_SYMBOL="${EXECUTOR_SYMBOL:-XAUUSD}"
 DEMO_RAG_ENABLED="${DEMO_RAG_ENABLED:-1}"
 DEMO_RAG_TOP_K="${DEMO_RAG_TOP_K:-3}"
 DEMO_RAG_PREFER="${DEMO_RAG_PREFER:-pinecone}"
+DEMO_ENFORCE_SESSION_WINDOW="${DEMO_ENFORCE_SESSION_WINDOW:-1}"
+DEMO_SESSION_WINDOWS="${DEMO_SESSION_WINDOWS:-06:00-09:00,12:00-16:30}"
+DEMO_FRIDAY_CLOSE_HOUR_UTC="${DEMO_FRIDAY_CLOSE_HOUR_UTC:-21.0}"
+DEMO_SUNDAY_OPEN_HOUR_UTC="${DEMO_SUNDAY_OPEN_HOUR_UTC:-22.0}"
+DEMO_ALLOW_ROLLOVER_WINDOW="${DEMO_ALLOW_ROLLOVER_WINDOW:-0}"
+DEMO_ENFORCE_VOLATILITY_GUARD="${DEMO_ENFORCE_VOLATILITY_GUARD:-1}"
+DEMO_MAX_ATR_TO_CLOSE_RATIO="${DEMO_MAX_ATR_TO_CLOSE_RATIO:-0.012}"
+DEMO_MIN_ATR_TO_CLOSE_RATIO="${DEMO_MIN_ATR_TO_CLOSE_RATIO:-0.0005}"
 
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
   cat <<'EOF'
@@ -41,6 +49,14 @@ Variaveis de ambiente suportadas:
   DEMO_RAG_ENABLED (default: 1)
   DEMO_RAG_TOP_K (default: 3)
   DEMO_RAG_PREFER (default: pinecone)
+  DEMO_ENFORCE_SESSION_WINDOW (default: 1)
+  DEMO_SESSION_WINDOWS (default: 06:00-09:00,12:00-16:30)
+  DEMO_FRIDAY_CLOSE_HOUR_UTC (default: 21.0)
+  DEMO_SUNDAY_OPEN_HOUR_UTC (default: 22.0)
+  DEMO_ALLOW_ROLLOVER_WINDOW (default: 0)
+  DEMO_ENFORCE_VOLATILITY_GUARD (default: 1)
+  DEMO_MAX_ATR_TO_CLOSE_RATIO (default: 0.012)
+  DEMO_MIN_ATR_TO_CLOSE_RATIO (default: 0.0005)
 
 Exemplo:
   PROJECT_DIR=/workspace RUN_EXECUTOR_DRY=1 RUN_EXECUTOR_LIVE=0 scripts/run_daily_shadow.sh
@@ -98,12 +114,25 @@ if [[ "$DEMO_RAG_ENABLED" == "1" ]]; then
   EXECUTOR_RAG_ARGS+=(--enable-rag-evidence --rag-top-k "$DEMO_RAG_TOP_K" --rag-prefer "$DEMO_RAG_PREFER")
 fi
 
+EXECUTOR_SESSION_ARGS=()
+if [[ "$DEMO_ENFORCE_SESSION_WINDOW" == "1" ]]; then
+  EXECUTOR_SESSION_ARGS+=(--enforce-session-window --session-windows "$DEMO_SESSION_WINDOWS" --friday-close-hour-utc "$DEMO_FRIDAY_CLOSE_HOUR_UTC" --sunday-open-hour-utc "$DEMO_SUNDAY_OPEN_HOUR_UTC")
+  if [[ "$DEMO_ALLOW_ROLLOVER_WINDOW" == "1" ]]; then
+    EXECUTOR_SESSION_ARGS+=(--allow-rollover-window)
+  fi
+fi
+
+EXECUTOR_VOL_ARGS=()
+if [[ "$DEMO_ENFORCE_VOLATILITY_GUARD" == "1" ]]; then
+  EXECUTOR_VOL_ARGS+=(--enforce-volatility-guard --max-atr-to-close-ratio "$DEMO_MAX_ATR_TO_CLOSE_RATIO" --min-atr-to-close-ratio "$DEMO_MIN_ATR_TO_CLOSE_RATIO")
+fi
+
 if [[ "$RUN_EXECUTOR_DRY" == "1" ]]; then
-  run_cmd "$PYTHON_BIN" executor_demo_autonomo.py --env-file "$ENV_FILE" --symbol "$EXECUTOR_SYMBOL" "${EXECUTOR_RAG_ARGS[@]}"
+  run_cmd "$PYTHON_BIN" executor_demo_autonomo.py --env-file "$ENV_FILE" --symbol "$EXECUTOR_SYMBOL" "${EXECUTOR_RAG_ARGS[@]}" "${EXECUTOR_SESSION_ARGS[@]}" "${EXECUTOR_VOL_ARGS[@]}"
 fi
 
 if [[ "$RUN_EXECUTOR_LIVE" == "1" ]]; then
-  run_cmd "$PYTHON_BIN" executor_demo_autonomo.py --env-file "$ENV_FILE" --symbol "$EXECUTOR_SYMBOL" "${EXECUTOR_RAG_ARGS[@]}" --execute
+  run_cmd "$PYTHON_BIN" executor_demo_autonomo.py --env-file "$ENV_FILE" --symbol "$EXECUTOR_SYMBOL" "${EXECUTOR_RAG_ARGS[@]}" "${EXECUTOR_SESSION_ARGS[@]}" "${EXECUTOR_VOL_ARGS[@]}" --execute
 fi
 
 log "Daily shadow run concluido com sucesso"
