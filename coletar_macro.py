@@ -69,7 +69,7 @@ def fetch_yahoo_chart(symbol: str) -> dict:
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
     params = {"range": "5d", "interval": "1d"}
     last_exc: Exception | None = None
-    response = None
+    payload: dict | None = None
     for attempt in range(5):
         try:
             response = requests.get(
@@ -82,12 +82,19 @@ def fetch_yahoo_chart(symbol: str) -> dict:
                 time.sleep(2**attempt)
                 continue
             response.raise_for_status()
+            candidate = response.json()
+            if not isinstance(candidate, dict):
+                raise ValueError("Yahoo payload inválido (não é objeto JSON).")
+            if "chart" not in candidate:
+                preview = (response.text or "")[:220].replace("\n", " ").strip()
+                raise ValueError(f"Yahoo payload sem campo chart. Preview: {preview}")
+            payload = candidate
             break
         except Exception as exc:  # noqa: BLE001
             last_exc = exc
             time.sleep(2**attempt)
-            response = None
-    if response is None:
+            payload = None
+    if payload is None:
         return {
             "source": "Yahoo",
             "symbol": symbol,
@@ -96,10 +103,16 @@ def fetch_yahoo_chart(symbol: str) -> dict:
             "error": str(last_exc) if last_exc else "unknown_error",
         }
 
-    payload = response.json()
     result = payload.get("chart", {}).get("result", [])
     if not result:
-        return {"source": "Yahoo", "symbol": symbol, "value": None, "time": None}
+        chart_error = payload.get("chart", {}).get("error")
+        return {
+            "source": "Yahoo",
+            "symbol": symbol,
+            "value": None,
+            "time": None,
+            "error": str(chart_error) if chart_error else None,
+        }
 
     first = result[0]
     timestamps = first.get("timestamp", [])
