@@ -17,9 +17,16 @@ DEFAULT_FEATURE_INPUT = DATA_DIR / "xauusd_feature_table.csv"
 DEFAULT_LABELED_INPUT = DATA_DIR / "xauusd_labeled_dataset.csv"
 DEFAULT_GATE_REPORT = DATA_DIR / "gate_report.json"
 DEFAULT_LOG_PATH = DATA_DIR / "demo_autonomous_executor_log.jsonl"
+DEFAULT_FEEDBACK_LOG = DATA_DIR / "feedback_events.jsonl"
 
 
 def _append_log(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as fp:
+        fp.write(json.dumps(payload, ensure_ascii=False, default=str) + "\n")
+
+
+def _append_feedback(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as fp:
         fp.write(json.dumps(payload, ensure_ascii=False, default=str) + "\n")
@@ -272,6 +279,15 @@ async def run_autonomous(args: argparse.Namespace) -> None:
             "feature_time": latest_feature["time"].isoformat(),
         }
         _append_log(args.log_path, no_trade_payload)
+        _append_feedback(
+            args.feedback_log_path,
+            {
+                **no_trade_payload,
+                "feedback_type": "signal",
+                "decision": "no_trade",
+                "source": "executor_demo_autonomo",
+            },
+        )
         print("⚠️ Sem trade: sinal sem confiança suficiente.")
         print(json.dumps(no_trade_payload, indent=2, ensure_ascii=False))
         return
@@ -343,6 +359,15 @@ async def run_autonomous(args: argparse.Namespace) -> None:
         "dry_run": not args.execute,
     }
     _append_log(args.log_path, order_plan)
+    _append_feedback(
+        args.feedback_log_path,
+        {
+            **order_plan,
+            "feedback_type": "signal",
+            "decision": "trade_plan",
+            "source": "executor_demo_autonomo",
+        },
+    )
     print("Plano de ordem autonoma:")
     print(json.dumps(order_plan, indent=2, ensure_ascii=False))
 
@@ -370,6 +395,15 @@ async def run_autonomous(args: argparse.Namespace) -> None:
         "result": result,
     }
     _append_log(args.log_path, execution_log)
+    _append_feedback(
+        args.feedback_log_path,
+        {
+            **execution_log,
+            "feedback_type": "execution",
+            "decision": "order_executed",
+            "source": "executor_demo_autonomo",
+        },
+    )
     print("✅ Ordem autonoma enviada com sucesso.")
     print(json.dumps(result, indent=2, ensure_ascii=False))
 
@@ -399,6 +433,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--comment", type=str, default="MariaHelena-Autonomo")
     parser.add_argument("--log-path", type=Path, default=DEFAULT_LOG_PATH)
+    parser.add_argument("--feedback-log-path", type=Path, default=DEFAULT_FEEDBACK_LOG)
     return parser.parse_args()
 
 

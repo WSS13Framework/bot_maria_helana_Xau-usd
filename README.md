@@ -114,6 +114,15 @@ python3 gerenciar_posicao_autonomo.py --account-id SEU_ACCOUNT_ID --symbol XAUUS
 python3 gerenciar_posicao_autonomo.py --account-id SEU_ACCOUNT_ID --symbol XAUUSD --enable-breakeven --enable-trailing --execute
 ```
 
+## Feedback contínuo + retrain em lote (institucional)
+```bash
+# Registrar feedback manual (override / observações)
+python3 feedback_logger.py log --event-type manual_feedback --account-id SUA_CONTA --symbol XAUUSD --status approved --note "contexto macro favorável"
+
+# Rodar scheduler de retrain (só treina se houver dados novos + cooldown vencido)
+python3 retrain_scheduler.py run --feedback-file /root/maria-helena/data/trade_feedback.jsonl --min-new-events 25 --min-hours-between-runs 12
+```
+
 ## Executor seguro DEMO (MetaApi)
 ```bash
 # Simulação (não envia ordem)
