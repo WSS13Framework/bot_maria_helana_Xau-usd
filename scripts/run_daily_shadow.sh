@@ -25,8 +25,11 @@ DEMO_FRIDAY_CLOSE_HOUR_UTC="${DEMO_FRIDAY_CLOSE_HOUR_UTC:-21.0}"
 DEMO_SUNDAY_OPEN_HOUR_UTC="${DEMO_SUNDAY_OPEN_HOUR_UTC:-22.0}"
 DEMO_ALLOW_ROLLOVER_WINDOW="${DEMO_ALLOW_ROLLOVER_WINDOW:-0}"
 DEMO_ENFORCE_VOLATILITY_GUARD="${DEMO_ENFORCE_VOLATILITY_GUARD:-1}"
-DEMO_MAX_ATR_TO_CLOSE_RATIO="${DEMO_MAX_ATR_TO_CLOSE_RATIO:-0.012}"
-DEMO_MIN_ATR_TO_CLOSE_RATIO="${DEMO_MIN_ATR_TO_CLOSE_RATIO:-0.0005}"
+DEMO_VOLATILITY_WARNING_RATIO="${DEMO_VOLATILITY_WARNING_RATIO:-1.6}"
+DEMO_VOLATILITY_MAX_RATIO="${DEMO_VOLATILITY_MAX_RATIO:-2.4}"
+DEMO_VOLATILITY_THRESHOLD_ADD="${DEMO_VOLATILITY_THRESHOLD_ADD:-0.03}"
+DEMO_VOLATILITY_RISK_MULT="${DEMO_VOLATILITY_RISK_MULT:-0.70}"
+DEMO_MIN_VOLATILITY_RISK_MULT="${DEMO_MIN_VOLATILITY_RISK_MULT:-0.40}"
 
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
   cat <<'EOF'
@@ -55,8 +58,11 @@ Variaveis de ambiente suportadas:
   DEMO_SUNDAY_OPEN_HOUR_UTC (default: 22.0)
   DEMO_ALLOW_ROLLOVER_WINDOW (default: 0)
   DEMO_ENFORCE_VOLATILITY_GUARD (default: 1)
-  DEMO_MAX_ATR_TO_CLOSE_RATIO (default: 0.012)
-  DEMO_MIN_ATR_TO_CLOSE_RATIO (default: 0.0005)
+  DEMO_VOLATILITY_WARNING_RATIO (default: 1.6)
+  DEMO_VOLATILITY_MAX_RATIO (default: 2.4)
+  DEMO_VOLATILITY_THRESHOLD_ADD (default: 0.03)
+  DEMO_VOLATILITY_RISK_MULT (default: 0.70)
+  DEMO_MIN_VOLATILITY_RISK_MULT (default: 0.40)
 
 Exemplo:
   PROJECT_DIR=/workspace RUN_EXECUTOR_DRY=1 RUN_EXECUTOR_LIVE=0 scripts/run_daily_shadow.sh
@@ -96,6 +102,7 @@ log "Env file: $ENV_FILE"
 
 run_cmd "$PYTHON_BIN" test_benzinga.py
 run_cmd "$PYTHON_BIN" coletar_macro.py
+run_cmd "$PYTHON_BIN" coletar_macro_eventos.py
 run_cmd "$PYTHON_BIN" coletar_contexto_global.py
 run_cmd "$PYTHON_BIN" coletar_candles.py
 run_cmd "$PYTHON_BIN" build_dataset.py --exogenous-shock-threshold "$EXOGENOUS_SHOCK_THRESHOLD"
@@ -124,7 +131,7 @@ fi
 
 EXECUTOR_VOL_ARGS=()
 if [[ "$DEMO_ENFORCE_VOLATILITY_GUARD" == "1" ]]; then
-  EXECUTOR_VOL_ARGS+=(--enforce-volatility-guard --max-atr-to-close-ratio "$DEMO_MAX_ATR_TO_CLOSE_RATIO" --min-atr-to-close-ratio "$DEMO_MIN_ATR_TO_CLOSE_RATIO")
+  EXECUTOR_VOL_ARGS+=(--enforce-volatility-guardrail --volatility-warning-ratio "$DEMO_VOLATILITY_WARNING_RATIO" --volatility-max-ratio "$DEMO_VOLATILITY_MAX_RATIO" --volatility-threshold-add "$DEMO_VOLATILITY_THRESHOLD_ADD" --volatility-risk-mult "$DEMO_VOLATILITY_RISK_MULT" --min-volatility-risk-mult "$DEMO_MIN_VOLATILITY_RISK_MULT")
 fi
 
 if [[ "$RUN_EXECUTOR_DRY" == "1" ]]; then

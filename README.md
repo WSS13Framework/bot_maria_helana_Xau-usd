@@ -21,6 +21,7 @@ bash scripts/bootstrap_env.sh
 ```bash
 python3 test_benzinga.py
 python3 coletar_macro.py
+python3 coletar_macro_eventos.py
 python3 coletar_contexto_global.py
 python3 coletar_candles.py
 python3 build_dataset.py --exogenous-shock-threshold 0.55
@@ -40,6 +41,13 @@ O `build_dataset.py` agora incorpora automaticamente features exogenas:
 - `exogenous_gold_bias`
 - `exogenous_risk_multiplier`
 - `exogenous_threshold_premium`
+- `macro_event_count_4h`, `macro_event_high_impact_4h`
+- `macro_event_positive_surprise_4h`, `macro_event_negative_surprise_4h`
+- `macro_event_abs_surprise_4h`
+
+Macro premium com fallback:
+- `coletar_macro.py` usa feed premium (quando configurado) e cai para Yahoo/FRED automaticamente
+- `coletar_macro_eventos.py` coleta CPI/NFP/FOMC com `actual/forecast/surprise`
 
 ## Robustez e validação institucional
 ```bash
@@ -112,9 +120,10 @@ python3 executor_demo_autonomo.py \
   --symbol XAUUSD \
   --enforce-session-window \
   --session-windows "00:00-03:00,06:00-09:00,12:00-16:30" \
-  --volatility-block-enabled \
-  --atr-vol-window 288 \
-  --atr-vol-z-threshold 2.5
+  --enforce-volatility-guardrail \
+  --atr-regime-lookback 288 \
+  --volatility-warning-ratio 1.6 \
+  --volatility-max-ratio 2.4
 ```
 
 Evidencia RAG no plano de ordem (Pinecone -> FAISS fallback):

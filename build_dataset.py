@@ -47,6 +47,9 @@ def _build_macro_frame(macro_snapshot_path: Path) -> pd.DataFrame:
 
     def _extract_time() -> pd.Timestamp | None:
         candidates = [
+            snapshot.get("dxy_selected", {}).get("time"),
+            snapshot.get("vix_selected", {}).get("time"),
+            snapshot.get("us10y_selected", {}).get("time"),
             snapshot.get("dxy_yahoo", {}).get("time"),
             snapshot.get("vix_yahoo", {}).get("time"),
             snapshot.get("collected_at"),
@@ -61,12 +64,21 @@ def _build_macro_frame(macro_snapshot_path: Path) -> pd.DataFrame:
     if snapshot_time is None:
         return pd.DataFrame(columns=["time", "macro_dxy_yahoo", "macro_vix_yahoo", "macro_us10y_fred", "macro_dxy_fred_proxy"])
 
+    dxy_selected = snapshot.get("dxy_selected", {})
+    vix_selected = snapshot.get("vix_selected", {})
+    us10y_selected = snapshot.get("us10y_selected", {})
     row = {
         "time": snapshot_time,
-        "macro_dxy_yahoo": snapshot.get("dxy_yahoo", {}).get("value"),
-        "macro_vix_yahoo": snapshot.get("vix_yahoo", {}).get("value"),
-        "macro_us10y_fred": snapshot.get("us10y_fred", {}).get("value"),
+        # Keep legacy column names for compatibility, but fill using selected source.
+        "macro_dxy_yahoo": dxy_selected.get("value", snapshot.get("dxy_yahoo", {}).get("value")),
+        "macro_vix_yahoo": vix_selected.get("value", snapshot.get("vix_yahoo", {}).get("value")),
+        "macro_us10y_fred": us10y_selected.get("value", snapshot.get("us10y_fred", {}).get("value")),
         "macro_dxy_fred_proxy": snapshot.get("dxy_fred_proxy", {}).get("value"),
+        "macro_dxy_selected": dxy_selected.get("value"),
+        "macro_vix_selected": vix_selected.get("value"),
+        "macro_us10y_selected": us10y_selected.get("value"),
+        "macro_premium_enabled": int(bool(snapshot.get("premium_macro_status", {}).get("enabled"))),
+        "macro_premium_error": str(snapshot.get("premium_macro_status", {}).get("error") or ""),
     }
     return pd.DataFrame([row]).sort_values("time")
 
@@ -104,6 +116,96 @@ def _build_news_events(news_path: Path) -> pd.DataFrame:
 
     news_frame = pd.DataFrame(rows).sort_values("time").reset_index(drop=True)
     return news_frame
+
+
+def _build_macro_events_frame(events_path: Path) -> pd.DataFrame:
+    columns = [
+        "time",
+        "macro_event_count_4h",
+        "macro_event_high_impact_4h",
+        "macro_event_usd_4h",
+        "macro_event_gold_relevant_4h",
+        "macro_event_positive_surprise_4h",
+        "macro_event_negative_surprise_4h",
+        "macro_event_abs_surprise_4h",
+    ]
+    if not events_path.exists():
+        return pd.DataFrame(columns=columns)
+
+    payload = _read_json(events_path)
+    if not isinstance(payload, dict):
+        return pd.DataFrame(columns=columns)
+    raw_events = payload.get("events", [])
+
+    event_items: list[dict[str, Any]] = []
+    if isinstance(raw_events, list):
+        event_items = [item for item in raw_events if isinstance(item, dict)]
+    elif isinstance(raw_events, dict):
+        event_items = [item for item in raw_events.values() if isinstance(item, dict)]
+
+    if not event_items:
+        return pd.DataFrame(columns=columns)
+
+    rows: list[dict[str, Any]] = []
+    for item in event_items:
+        if not isinstance(item, dict):
+            continue
+        ts = pd.to_datetime(item.get("time") or item.get("event_time"), utc=True, errors="coerce")
+        if pd.isna(ts):
+            continue
+        currency = str(item.get("currency") or "").upper()
+        category = str(item.get("category") or "").upper()
+        event_name = str(item.get("event") or "").upper()
+        impact_score = float(pd.to_numeric(item.get("impact_score"), errors="coerce") or 0.0)
+        surprise = float(pd.to_numeric(item.get("surprise"), errors="coerce") or 0.0)
+        abs_surprise = float(pd.to_numeric(item.get("abs_surprise"), errors="coerce") or abs(surprise))
+
+        gold_relevant = int(
+            ("GOLD" in category)
+            or ("USD" in currency)
+            or any(keyword in event_name for keyword in ("CPI", "NFP", "FOMC", "RATE", "INFLATION"))
+        )
+        rows.append(
+            {
+                "time": ts,
+                "event_count": 1,
+                "high_impact": int(impact_score >= 0.8),
+                "usd_related": int(currency == "USD"),
+                "gold_relevant": gold_relevant,
+                "positive_surprise": int(surprise > 0),
+                "negative_surprise": int(surprise < 0),
+                "abs_surprise": abs_surprise,
+            }
+        )
+
+    if not rows:
+        return pd.DataFrame(columns=columns)
+
+    events = pd.DataFrame(rows).sort_values("time").reset_index(drop=True)
+    out = events[["time"]].copy()
+    base_times_ns = events["time"].astype("int64").to_numpy()
+    four_hours_ns = int(pd.Timedelta(hours=4).value)
+
+    right_indices = np.searchsorted(base_times_ns, base_times_ns, side="right")
+    left_4h = np.searchsorted(base_times_ns, base_times_ns - four_hours_ns, side="right")
+
+    def _window_sum(values: np.ndarray) -> np.ndarray:
+        cumsum = np.cumsum(values.astype(float))
+        counts = np.zeros_like(cumsum, dtype=float)
+        valid = right_indices > 0
+        counts[valid] = cumsum[right_indices[valid] - 1]
+        left_valid = left_4h > 0
+        counts[left_valid] -= cumsum[left_4h[left_valid] - 1]
+        return counts
+
+    out["macro_event_count_4h"] = _window_sum(events["event_count"].to_numpy())
+    out["macro_event_high_impact_4h"] = _window_sum(events["high_impact"].to_numpy())
+    out["macro_event_usd_4h"] = _window_sum(events["usd_related"].to_numpy())
+    out["macro_event_gold_relevant_4h"] = _window_sum(events["gold_relevant"].to_numpy())
+    out["macro_event_positive_surprise_4h"] = _window_sum(events["positive_surprise"].to_numpy())
+    out["macro_event_negative_surprise_4h"] = _window_sum(events["negative_surprise"].to_numpy())
+    out["macro_event_abs_surprise_4h"] = _window_sum(events["abs_surprise"].to_numpy())
+    return out
 
 
 def _build_global_context_frame(global_context_path: Path, structural_path: Path) -> pd.DataFrame:
@@ -181,6 +283,7 @@ def build_dataset(
     news_path: Path,
     global_context_path: Path | None = None,
     structural_context_path: Path | None = None,
+    macro_events_path: Path | None = None,
     exogenous_shock_threshold: float = 0.55,
 ) -> pd.DataFrame:
     m5_frame = _read_candle_frame(m5_path, prefix="m5")
@@ -216,6 +319,31 @@ def build_dataset(
 
     news_events = _build_news_events(news_path)
     dataset = _add_news_window_features(dataset, news_events)
+    if macro_events_path and macro_events_path.exists():
+        macro_events = _build_macro_events_frame(macro_events_path)
+        if not macro_events.empty:
+            dataset = pd.merge_asof(
+                dataset.sort_values("time"),
+                macro_events.sort_values("time"),
+                on="time",
+                direction="backward",
+            )
+        else:
+            dataset["macro_event_count_4h"] = 0.0
+            dataset["macro_event_high_impact_4h"] = 0.0
+            dataset["macro_event_usd_4h"] = 0.0
+            dataset["macro_event_gold_relevant_4h"] = 0.0
+            dataset["macro_event_positive_surprise_4h"] = 0.0
+            dataset["macro_event_negative_surprise_4h"] = 0.0
+            dataset["macro_event_abs_surprise_4h"] = 0.0
+    else:
+        dataset["macro_event_count_4h"] = 0.0
+        dataset["macro_event_high_impact_4h"] = 0.0
+        dataset["macro_event_usd_4h"] = 0.0
+        dataset["macro_event_gold_relevant_4h"] = 0.0
+        dataset["macro_event_positive_surprise_4h"] = 0.0
+        dataset["macro_event_negative_surprise_4h"] = 0.0
+        dataset["macro_event_abs_surprise_4h"] = 0.0
 
     dataset["h1_close_to_m5_close"] = dataset["h1_close"] / dataset["m5_close"]
     dataset["d1_close_to_m5_close"] = dataset["d1_close"] / dataset["m5_close"]
@@ -298,6 +426,7 @@ def main() -> None:
         news_path=args.data_dir / "benzinga_relevant_news.json",
         global_context_path=args.data_dir / "global_context_daily.csv",
         structural_context_path=args.data_dir / "global_structural_fred.csv",
+        macro_events_path=args.data_dir / "macro_events_snapshot.json",
         exogenous_shock_threshold=args.exogenous_shock_threshold,
     )
     dataset.to_csv(args.output, index=False)
