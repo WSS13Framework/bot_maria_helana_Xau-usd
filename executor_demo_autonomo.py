@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import json
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -18,6 +19,9 @@ DEFAULT_LABELED_INPUT = DATA_DIR / "xauusd_labeled_dataset.csv"
 DEFAULT_GATE_REPORT = DATA_DIR / "gate_report.json"
 DEFAULT_LOG_PATH = DATA_DIR / "demo_autonomous_executor_log.jsonl"
 DEFAULT_FEEDBACK_LOG = DATA_DIR / "feedback_events.jsonl"
+DEFAULT_RAG_RETRIEVER_SCRIPT = Path("/root/maria-helena/rag_retriever.py")
+DEFAULT_RAG_FAISS_INDEX = DATA_DIR / "local_rag" / "index.faiss"
+DEFAULT_RAG_SQLITE_DB = DATA_DIR / "local_rag" / "metadata.sqlite3"
 
 
 def _append_log(path: Path, payload: dict[str, Any]) -> None:
@@ -131,6 +135,161 @@ def _safe_float(value: Any, default: float) -> float:
     return numeric
 
 
+def _extract_last_json_object(raw_text: str) -> dict[str, Any] | None:
+    decoder = json.JSONDecoder()
+    candidate = None
+    for index, char in enumerate(raw_text):
+        if char != "{":
+            continue
+        try:
+            parsed, _ = decoder.raw_decode(raw_text[index:])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, dict):
+            candidate = parsed
+    return candidate
+
+
+def _normalize_rag_matches(
+    payload: dict[str, Any],
+    max_items: int,
+    snippet_chars: int,
+) -> list[dict[str, Any]]:
+    raw_matches = payload.get("matches")
+    if not isinstance(raw_matches, list):
+        return []
+
+    normalized: list[dict[str, Any]] = []
+    for item in raw_matches[: max(0, max_items)]:
+        if not isinstance(item, dict):
+            continue
+        metadata = item.get("metadata")
+        if not isinstance(metadata, dict):
+            metadata = {}
+        text_blob = metadata.get("text")
+        if text_blob is None:
+            text_blob = item.get("text")
+        snippet = str(text_blob or "").replace("\n", " ").strip()
+        if snippet_chars > 0:
+            snippet = snippet[:snippet_chars]
+        normalized.append(
+            {
+                "id": str(item.get("id") or ""),
+                "score": _safe_float(item.get("score"), 0.0),
+                "source": str(metadata.get("source") or ""),
+                "type": str(metadata.get("type") or ""),
+                "title": str(metadata.get("title") or ""),
+                "time": str(metadata.get("time") or ""),
+                "snippet": snippet,
+            }
+        )
+    return normalized
+
+
+def _build_rag_query_text(
+    symbol: str,
+    p_long: float,
+    p_short: float,
+    exogenous_shock_flag: int,
+    exogenous_shock_score: float,
+    exogenous_gold_bias: int,
+) -> str:
+    if exogenous_gold_bias > 0:
+        bias_label = "long"
+    elif exogenous_gold_bias < 0:
+        bias_label = "short"
+    else:
+        bias_label = "neutral"
+    return (
+        f"{symbol} market regime context "
+        f"p_long={p_long:.4f} p_short={p_short:.4f} "
+        f"exogenous_shock_flag={exogenous_shock_flag} "
+        f"exogenous_shock_score={exogenous_shock_score:.4f} "
+        f"gold_bias={bias_label} "
+        "fed fomc inflation dxy vix us10y geopolitics war risk"
+    )
+
+
+def _query_rag_evidence(args: argparse.Namespace, query_text: str) -> dict[str, Any]:
+    base_payload = {
+        "rag_evidence_enabled": bool(args.enable_rag_evidence),
+        "rag_query_text": query_text,
+        "rag_backend": None,
+        "rag_status": "disabled",
+        "rag_error": "",
+        "rag_context_matches": [],
+    }
+    if not args.enable_rag_evidence:
+        return base_payload
+
+    if not args.rag_retriever_script.exists():
+        base_payload["rag_status"] = "script_not_found"
+        base_payload["rag_error"] = f"Arquivo ausente: {args.rag_retriever_script}"
+        return base_payload
+
+    command = [
+        args.python_bin,
+        str(args.rag_retriever_script),
+        "--env-file",
+        str(args.env_file),
+        "--data-dir",
+        str(args.rag_data_dir),
+        "--faiss-index",
+        str(args.rag_faiss_index),
+        "--sqlite-db",
+        str(args.rag_sqlite_db),
+        "query",
+        "--text",
+        query_text,
+        "--top-k",
+        str(args.rag_top_k),
+        "--prefer",
+        args.rag_prefer,
+    ]
+
+    try:
+        completed = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            timeout=max(5, int(args.rag_timeout_sec)),
+        )
+    except subprocess.TimeoutExpired as exc:
+        base_payload["rag_status"] = "timeout"
+        base_payload["rag_error"] = f"RAG timeout ({exc.timeout}s)"
+        return base_payload
+    except Exception as exc:  # noqa: BLE001
+        base_payload["rag_status"] = "error"
+        base_payload["rag_error"] = str(exc)
+        return base_payload
+
+    stdout = completed.stdout or ""
+    stderr = completed.stderr or ""
+    parsed = _extract_last_json_object(stdout)
+
+    if "Query via Pinecone" in stdout:
+        base_payload["rag_backend"] = "pinecone"
+    elif "Query via FAISS/SQLite" in stdout:
+        base_payload["rag_backend"] = "faiss"
+
+    if completed.returncode != 0:
+        base_payload["rag_status"] = "error"
+        base_payload["rag_error"] = (stderr or stdout)[-600:]
+        return base_payload
+    if not isinstance(parsed, dict):
+        base_payload["rag_status"] = "parse_error"
+        base_payload["rag_error"] = "Nao foi possivel extrair JSON da resposta RAG"
+        return base_payload
+
+    base_payload["rag_status"] = "ok"
+    base_payload["rag_context_matches"] = _normalize_rag_matches(
+        payload=parsed,
+        max_items=args.rag_context_max_items,
+        snippet_chars=args.rag_snippet_chars,
+    )
+    return base_payload
+
+
 def _compute_volume(
     balance: float,
     risk_pct: float,
@@ -234,6 +393,15 @@ async def run_autonomous(args: argparse.Namespace) -> None:
     exogenous_risk_multiplier = _safe_float(
         latest_feature.get("exogenous_risk_multiplier", 1.0), 1.0
     )
+    rag_query_text = _build_rag_query_text(
+        symbol=args.symbol.upper(),
+        p_long=p_long,
+        p_short=p_short,
+        exogenous_shock_flag=exogenous_shock_flag,
+        exogenous_shock_score=exogenous_shock_score,
+        exogenous_gold_bias=exogenous_gold_bias,
+    )
+    rag_evidence = _query_rag_evidence(args, rag_query_text)
 
     effective_threshold = args.threshold
     effective_risk_pct = args.risk_per_trade_pct
@@ -334,6 +502,7 @@ async def run_autonomous(args: argparse.Namespace) -> None:
             "exogenous_gold_bias": exogenous_gold_bias,
             "exogenous_threshold_premium": exogenous_threshold_premium,
             "exogenous_risk_multiplier": exogenous_risk_multiplier,
+            **rag_evidence,
             "feature_time": latest_feature["time"].isoformat(),
         }
         _append_log(args.log_path, no_trade_payload)
@@ -416,6 +585,7 @@ async def run_autonomous(args: argparse.Namespace) -> None:
         "exogenous_gold_bias": exogenous_gold_bias,
         "exogenous_threshold_premium": exogenous_threshold_premium,
         "exogenous_risk_multiplier": exogenous_risk_multiplier,
+        **rag_evidence,
         "atr": atr_value,
         "sl_points": sl_points,
         "tp_points": tp_points,
@@ -459,6 +629,14 @@ async def run_autonomous(args: argparse.Namespace) -> None:
         "symbol": symbol,
         "side": side,
         "volume": volume,
+        "p_long": p_long,
+        "p_short": p_short,
+        "effective_threshold": effective_threshold,
+        "effective_risk_per_trade_pct": effective_risk_pct,
+        "exogenous_shock_flag": exogenous_shock_flag,
+        "exogenous_shock_score": exogenous_shock_score,
+        "exogenous_gold_bias": exogenous_gold_bias,
+        **rag_evidence,
         "result": result,
     }
     _append_log(args.log_path, execution_log)
@@ -507,6 +685,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--comment", type=str, default="MariaHelena-Autonomo")
     parser.add_argument("--log-path", type=Path, default=DEFAULT_LOG_PATH)
     parser.add_argument("--feedback-log-path", type=Path, default=DEFAULT_FEEDBACK_LOG)
+    parser.add_argument("--enable-rag-evidence", action="store_true")
+    parser.add_argument("--python-bin", type=str, default="python3")
+    parser.add_argument("--rag-retriever-script", type=Path, default=DEFAULT_RAG_RETRIEVER_SCRIPT)
+    parser.add_argument("--rag-data-dir", type=Path, default=DATA_DIR)
+    parser.add_argument("--rag-faiss-index", type=Path, default=DEFAULT_RAG_FAISS_INDEX)
+    parser.add_argument("--rag-sqlite-db", type=Path, default=DEFAULT_RAG_SQLITE_DB)
+    parser.add_argument("--rag-top-k", type=int, default=5)
+    parser.add_argument("--rag-prefer", type=str, choices=("pinecone", "faiss"), default="pinecone")
+    parser.add_argument("--rag-timeout-sec", type=float, default=45.0)
+    parser.add_argument("--rag-context-max-items", type=int, default=3)
+    parser.add_argument("--rag-snippet-chars", type=int, default=220)
     return parser.parse_args()
 
 

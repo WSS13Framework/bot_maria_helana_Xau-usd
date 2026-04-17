@@ -30,6 +30,11 @@ python3 backtest_walkforward.py
 python3 risk_execution.py
 ```
 
+Execucao automatica diaria (shadow) em um comando:
+```bash
+bash scripts/run_daily_shadow.sh
+```
+
 O `build_dataset.py` agora incorpora automaticamente features exogenas:
 - `exogenous_shock_score` / `exogenous_shock_flag`
 - `exogenous_gold_bias`
@@ -55,11 +60,11 @@ python3 rag_pinecone.py query --text "geopolitical risk and gold direction"
 
 ## RAG com fallback automático (Pinecone -> FAISS/SQLite)
 ```bash
-# Indexação automática (usa Pinecone se chave disponível; senão usa local)
-python3 rag_retriever.py index --backend auto
+# Indexação local em FAISS/SQLite
+python3 rag_retriever.py index-local
 
-# Consulta automática
-python3 rag_retriever.py query --backend auto --text "gold fed inflation risk regime" --top-k 10
+# Consulta com fallback (preferência Pinecone, cai para FAISS)
+python3 rag_retriever.py query --text "gold fed inflation risk regime" --top-k 10 --prefer pinecone
 ```
 
 ## Knowledge Graph com Neo4j
@@ -99,6 +104,11 @@ Guardrail exogeno (choque externo) no executor:
 ```bash
 # Aumenta threshold e reduz risco quando exogenous_shock_flag=1
 python3 executor_demo_autonomo.py --symbol XAUUSD --shock-threshold-add 0.05 --shock-risk-mult 0.60
+```
+
+Evidencia RAG no plano de ordem (Pinecone -> FAISS fallback):
+```bash
+python3 executor_demo_autonomo.py --symbol XAUUSD --enable-rag-evidence --rag-top-k 3
 ```
 
 ## Painel SaaS (sem linha de comando)
