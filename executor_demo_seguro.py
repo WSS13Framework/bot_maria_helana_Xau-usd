@@ -67,7 +67,10 @@ async def run_executor(args: argparse.Namespace) -> None:
         )
         return
 
-    terminal_state = connection.terminal_state
+    stream_connection = account.get_streaming_connection()
+    await stream_connection.connect()
+    await stream_connection.wait_synchronized()
+    terminal_state = stream_connection.terminal_state
     symbol_price = terminal_state.price(symbol=args.symbol)
     if not symbol_price:
         raise ValueError(f"Preço indisponível para {args.symbol}")
