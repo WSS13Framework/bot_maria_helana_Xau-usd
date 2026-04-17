@@ -21,7 +21,7 @@ DEFAULT_LOG_PATH = DATA_DIR / "position_manager_log.jsonl"
 def _append_log(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as fp:
-        fp.write(json.dumps(payload, ensure_ascii=False) + "\n")
+        fp.write(json.dumps(payload, ensure_ascii=False, default=str) + "\n")
 
 
 def _classify_account(name: str) -> str:
