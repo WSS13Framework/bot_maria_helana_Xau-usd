@@ -121,6 +121,16 @@ def _round_to_step(value: float, step: float) -> float:
     return round(rounded, decimals)
 
 
+def _safe_float(value: Any, default: float) -> float:
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return default
+    if not np.isfinite(numeric):
+        return default
+    return numeric
+
+
 def _compute_volume(
     balance: float,
     risk_pct: float,
@@ -210,17 +220,58 @@ async def run_autonomous(args: argparse.Namespace) -> None:
     )
     x_live = x_live_all.iloc[[-1]]
 
+    latest_feature = feature_frame.iloc[-1]
+    latest_labeled = labeled_frame.iloc[-1]
     p_long = _fit_predict_probability(x_train, train_frame["long_target"], x_live)
     p_short = _fit_predict_probability(x_train, train_frame["short_target"], x_live)
 
+    exogenous_shock_flag = int(_safe_float(latest_feature.get("exogenous_shock_flag", 0), 0.0))
+    exogenous_shock_score = _safe_float(latest_feature.get("exogenous_shock_score", 0.0), 0.0)
+    exogenous_gold_bias = int(_safe_float(latest_feature.get("exogenous_gold_bias", 0), 0.0))
+    exogenous_threshold_premium = _safe_float(
+        latest_feature.get("exogenous_threshold_premium", 0.0), 0.0
+    )
+    exogenous_risk_multiplier = _safe_float(
+        latest_feature.get("exogenous_risk_multiplier", 1.0), 1.0
+    )
+
+    effective_threshold = args.threshold
+    effective_risk_pct = args.risk_per_trade_pct
+    shock_threshold_add_applied = 0.0
+    shock_risk_multiplier_applied = 1.0
+    if not args.disable_exogenous_guardrail and exogenous_shock_flag == 1:
+        shock_threshold_add_applied = max(args.shock_threshold_add, exogenous_threshold_premium)
+        effective_threshold = float(np.clip(args.threshold + shock_threshold_add_applied, 0.0, 0.95))
+        shock_risk_multiplier_applied = float(
+            np.clip(
+                min(exogenous_risk_multiplier, args.shock_risk_mult),
+                args.min_shock_risk_mult,
+                1.0,
+            )
+        )
+        effective_risk_pct = max(
+            args.min_risk_per_trade_pct,
+            args.risk_per_trade_pct * shock_risk_multiplier_applied,
+        )
+
     side = None
-    if p_long >= args.threshold and p_long >= p_short + args.edge_margin:
+    blocked_by_exogenous_bias = False
+    if p_long >= effective_threshold and p_long >= p_short + args.edge_margin:
         side = "buy"
-    elif p_short >= args.threshold and p_short >= p_long + args.edge_margin:
+    elif p_short >= effective_threshold and p_short >= p_long + args.edge_margin:
         side = "sell"
 
-    latest_feature = feature_frame.iloc[-1]
-    latest_labeled = labeled_frame.iloc[-1]
+    if (
+        side is not None
+        and not args.disable_bias_block
+        and exogenous_shock_flag == 1
+        and exogenous_gold_bias != 0
+    ):
+        if (side == "buy" and exogenous_gold_bias < 0) or (
+            side == "sell" and exogenous_gold_bias > 0
+        ):
+            blocked_by_exogenous_bias = True
+            side = None
     atr_value = float(latest_labeled.get("atr") or 0.0)
     if atr_value <= 0:
         raise ValueError("ATR inválido no último candle; não é possível calcular SL dinâmico.")
@@ -275,7 +326,14 @@ async def run_autonomous(args: argparse.Namespace) -> None:
             "p_long": p_long,
             "p_short": p_short,
             "threshold": args.threshold,
+            "effective_threshold": effective_threshold,
             "edge_margin": args.edge_margin,
+            "blocked_by_exogenous_bias": blocked_by_exogenous_bias,
+            "exogenous_shock_flag": exogenous_shock_flag,
+            "exogenous_shock_score": exogenous_shock_score,
+            "exogenous_gold_bias": exogenous_gold_bias,
+            "exogenous_threshold_premium": exogenous_threshold_premium,
+            "exogenous_risk_multiplier": exogenous_risk_multiplier,
             "feature_time": latest_feature["time"].isoformat(),
         }
         _append_log(args.log_path, no_trade_payload)
@@ -316,7 +374,7 @@ async def run_autonomous(args: argparse.Namespace) -> None:
     tp_points = max(args.min_tp_points, sl_points * args.tp_rr)
     volume, risk_usd = _compute_volume(
         balance=balance,
-        risk_pct=args.risk_per_trade_pct,
+        risk_pct=effective_risk_pct,
         sl_points=sl_points,
         point=point,
         specification=specification,
@@ -344,11 +402,20 @@ async def run_autonomous(args: argparse.Namespace) -> None:
         "volume": volume,
         "balance": balance,
         "risk_per_trade_pct": args.risk_per_trade_pct,
+        "effective_risk_per_trade_pct": effective_risk_pct,
+        "shock_risk_multiplier_applied": shock_risk_multiplier_applied,
         "risk_usd": risk_usd,
         "p_long": p_long,
         "p_short": p_short,
         "threshold": args.threshold,
+        "effective_threshold": effective_threshold,
+        "shock_threshold_add_applied": shock_threshold_add_applied,
         "edge_margin": args.edge_margin,
+        "exogenous_shock_flag": exogenous_shock_flag,
+        "exogenous_shock_score": exogenous_shock_score,
+        "exogenous_gold_bias": exogenous_gold_bias,
+        "exogenous_threshold_premium": exogenous_threshold_premium,
+        "exogenous_risk_multiplier": exogenous_risk_multiplier,
         "atr": atr_value,
         "sl_points": sl_points,
         "tp_points": tp_points,
@@ -419,6 +486,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--threshold", type=float, default=0.65)
     parser.add_argument("--edge-margin", type=float, default=0.03)
     parser.add_argument("--risk-per-trade-pct", type=float, default=0.003)
+    parser.add_argument("--min-risk-per-trade-pct", type=float, default=0.001)
     parser.add_argument("--atr-sl-mult", type=float, default=1.0)
     parser.add_argument("--tp-rr", type=float, default=1.5)
     parser.add_argument("--min-sl-points", type=float, default=400.0)
@@ -427,6 +495,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-open-positions", type=int, default=1)
     parser.add_argument("--max-orders-per-day", type=int, default=3)
     parser.add_argument("--max-volume-cap", type=float, default=0.10)
+    parser.add_argument("--shock-threshold-add", type=float, default=0.05)
+    parser.add_argument("--shock-risk-mult", type=float, default=0.60)
+    parser.add_argument("--min-shock-risk-mult", type=float, default=0.35)
+    parser.add_argument("--disable-exogenous-guardrail", action="store_true")
+    parser.add_argument("--disable-bias-block", action="store_true")
     parser.add_argument("--allow-live", action="store_true")
     parser.add_argument("--allow-unknown-account", action="store_true")
     parser.add_argument("--ignore-gate", action="store_true")

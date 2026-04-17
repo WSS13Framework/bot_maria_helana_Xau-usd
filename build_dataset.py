@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 from benzinga_filter import DEFAULT_RELEVANCE_KEYWORDS
+from external_flag_engine import add_exogenous_shock_features
 
 DATA_DIR = Path("/root/maria-helena/data")
 DEFAULT_OUTPUT = DATA_DIR / "xauusd_feature_table.csv"
@@ -180,6 +181,7 @@ def build_dataset(
     news_path: Path,
     global_context_path: Path | None = None,
     structural_context_path: Path | None = None,
+    exogenous_shock_threshold: float = 0.55,
 ) -> pd.DataFrame:
     m5_frame = _read_candle_frame(m5_path, prefix="m5")
     h1_frame = _read_candle_frame(h1_path, prefix="h1")
@@ -255,6 +257,10 @@ def build_dataset(
                 direction="backward",
             )
 
+    dataset = add_exogenous_shock_features(
+        dataset,
+        shock_threshold=exogenous_shock_threshold,
+    )
     return dataset
 
 
@@ -275,6 +281,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--data-dir", type=Path, default=DATA_DIR)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--meta-output", type=Path, default=DEFAULT_METADATA_OUTPUT)
+    parser.add_argument("--exogenous-shock-threshold", type=float, default=0.55)
     return parser.parse_args()
 
 
@@ -291,6 +298,7 @@ def main() -> None:
         news_path=args.data_dir / "benzinga_relevant_news.json",
         global_context_path=args.data_dir / "global_context_daily.csv",
         structural_context_path=args.data_dir / "global_structural_fred.csv",
+        exogenous_shock_threshold=args.exogenous_shock_threshold,
     )
     dataset.to_csv(args.output, index=False)
     _save_metadata(dataset, args.meta_output)

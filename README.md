@@ -23,12 +23,18 @@ python3 test_benzinga.py
 python3 coletar_macro.py
 python3 coletar_contexto_global.py
 python3 coletar_candles.py
-python3 build_dataset.py
+python3 build_dataset.py --exogenous-shock-threshold 0.55
 python3 label_triple_barrier.py
 python3 train_baseline.py
 python3 backtest_walkforward.py
 python3 risk_execution.py
 ```
+
+O `build_dataset.py` agora incorpora automaticamente features exogenas:
+- `exogenous_shock_score` / `exogenous_shock_flag`
+- `exogenous_gold_bias`
+- `exogenous_risk_multiplier`
+- `exogenous_threshold_premium`
 
 ## Robustez e validação institucional
 ```bash
@@ -87,6 +93,12 @@ python3 executor_demo_autonomo.py --symbol XAUUSD --execute
 Dica de protecao institucional: limitar lote maximo:
 ```bash
 python3 executor_demo_autonomo.py --symbol XAUUSD --max-volume-cap 0.05
+```
+
+Guardrail exogeno (choque externo) no executor:
+```bash
+# Aumenta threshold e reduz risco quando exogenous_shock_flag=1
+python3 executor_demo_autonomo.py --symbol XAUUSD --shock-threshold-add 0.05 --shock-risk-mult 0.60
 ```
 
 ## Painel SaaS (sem linha de comando)
