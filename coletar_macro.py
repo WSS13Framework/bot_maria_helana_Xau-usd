@@ -1,11 +1,19 @@
 import json
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
+from dotenv import dotenv_values
 
 OUTPUT_DIR = Path("/root/maria-helena/data")
 DEFAULT_TIMEOUT = 20
+DEFAULT_YAHOO_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    )
+}
 
 
 def _to_float(value):
@@ -43,11 +51,50 @@ def fetch_fred_series(series_id: str, api_key: str | None = None) -> dict:
     }
 
 
+def fetch_fred_series_safe(series_id: str, api_key: str | None = None) -> dict:
+    try:
+        return fetch_fred_series(series_id, api_key=api_key)
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "source": "FRED",
+            "series_id": series_id,
+            "date": None,
+            "value": None,
+            "raw_value": None,
+            "error": str(exc),
+        }
+
+
 def fetch_yahoo_chart(symbol: str) -> dict:
     url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
     params = {"range": "5d", "interval": "1d"}
-    response = requests.get(url, params=params, timeout=DEFAULT_TIMEOUT)
-    response.raise_for_status()
+    last_exc: Exception | None = None
+    response = None
+    for attempt in range(5):
+        try:
+            response = requests.get(
+                url,
+                params=params,
+                headers=DEFAULT_YAHOO_HEADERS,
+                timeout=DEFAULT_TIMEOUT,
+            )
+            if response.status_code == 429:
+                time.sleep(2**attempt)
+                continue
+            response.raise_for_status()
+            break
+        except Exception as exc:  # noqa: BLE001
+            last_exc = exc
+            time.sleep(2**attempt)
+            response = None
+    if response is None:
+        return {
+            "source": "Yahoo",
+            "symbol": symbol,
+            "time": None,
+            "value": None,
+            "error": str(last_exc) if last_exc else "unknown_error",
+        }
 
     payload = response.json()
     result = payload.get("chart", {}).get("result", [])
@@ -83,15 +130,17 @@ def collect_macro_snapshot(fred_api_key: str | None = None) -> dict:
         "collected_at": now,
         "dxy_yahoo": fetch_yahoo_chart("DX-Y.NYB"),
         "vix_yahoo": fetch_yahoo_chart("^VIX"),
-        "us10y_fred": fetch_fred_series("DGS10", fred_api_key),
-        "dxy_fred_proxy": fetch_fred_series("DTWEXBGS", fred_api_key),
+        "us10y_fred": fetch_fred_series_safe("DGS10", fred_api_key),
+        "dxy_fred_proxy": fetch_fred_series_safe("DTWEXBGS", fred_api_key),
     }
     return snapshot
 
 
 def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    snapshot = collect_macro_snapshot()
+    env_values = dotenv_values("/root/maria-helena/.env")
+    fred_key = (env_values.get("FRED_API_KEY") or "").strip() or None
+    snapshot = collect_macro_snapshot(fred_api_key=fred_key)
     output_file = OUTPUT_DIR / "macro_snapshot.json"
     with output_file.open("w", encoding="utf-8") as fp:
         json.dump(snapshot, fp, ensure_ascii=False)
