@@ -281,8 +281,17 @@ async def run_autonomous(args: argparse.Namespace) -> None:
     if balance <= 0:
         raise ValueError("Saldo/equity inválido para cálculo de risco.")
 
-    terminal_state = connection.terminal_state
-    price = terminal_state.price(symbol=symbol)
+    stream_connection = account.get_streaming_connection()
+    await stream_connection.connect()
+    await stream_connection.wait_synchronized()
+    await stream_connection.subscribe_to_market_data(symbol=symbol)
+    terminal_state = stream_connection.terminal_state
+    price = None
+    for _ in range(8):
+        price = terminal_state.price(symbol=symbol)
+        if price:
+            break
+        await asyncio.sleep(0.5)
     if not price:
         raise ValueError(f"Preço indisponível para {symbol}")
     specification = terminal_state.specification(symbol=symbol) or {}

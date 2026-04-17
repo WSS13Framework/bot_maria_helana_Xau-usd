@@ -70,8 +70,15 @@ async def run_executor(args: argparse.Namespace) -> None:
     stream_connection = account.get_streaming_connection()
     await stream_connection.connect()
     await stream_connection.wait_synchronized()
+    await stream_connection.subscribe_to_market_data(symbol=args.symbol.upper())
     terminal_state = stream_connection.terminal_state
-    symbol_price = terminal_state.price(symbol=args.symbol)
+
+    symbol_price = None
+    for _ in range(15):
+        symbol_price = terminal_state.price(symbol=args.symbol.upper())
+        if symbol_price and symbol_price.get("ask") is not None and symbol_price.get("bid") is not None:
+            break
+        await asyncio.sleep(0.3)
     if not symbol_price:
         raise ValueError(f"Preço indisponível para {args.symbol}")
 
