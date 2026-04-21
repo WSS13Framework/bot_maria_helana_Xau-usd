@@ -5,6 +5,18 @@ from pathlib import Path
 from dotenv import dotenv_values
 from metaapi_cloud_sdk import MetaApi
 
+PLACEHOLDER_MARKERS = (
+    "seu_",
+    "sua_",
+    "_aqui",
+)
+
+
+def _is_placeholder(value: str) -> bool:
+    normalized = value.strip().lower()
+    return not normalized or any(marker in normalized for marker in PLACEHOLDER_MARKERS)
+
+
 async def main():
     project_root = Path(__file__).resolve().parent
     env_path = project_root / ".env"
@@ -15,15 +27,19 @@ async def main():
     cfg = dotenv_values(env_path)
     token = cfg.get("METAAPI_TOKEN", "").strip()
     account_id = cfg.get("METAAPI_ACCOUNT_ID", "").strip()
-    if not token or not account_id:
-        print("⚠️ METAAPI_TOKEN ou METAAPI_ACCOUNT_ID ausente no .env")
+    if _is_placeholder(token) or _is_placeholder(account_id):
+        print("⚠️ METAAPI_TOKEN ou METAAPI_ACCOUNT_ID ausente/placeholder no .env")
         return
 
-    api = MetaApi(token)
-    account = await api.metatrader_account_api.get_account(
-        account_id
-    )
-    await account.wait_connected()
+    try:
+        api = MetaApi(token)
+        account = await api.metatrader_account_api.get_account(
+            account_id
+        )
+        await account.wait_connected()
+    except Exception as exc:
+        print(f"❌ Falha ao conectar na MetaAPI: {exc}")
+        return
 
     todos = []
     end_time = datetime.now(timezone.utc)

@@ -15,6 +15,12 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
+Se `python3 -m venv` falhar em Ubuntu minimal, instale:
+```bash
+sudo apt-get update
+sudo apt-get install -y python3.12-venv
+```
+
 Preencha o arquivo `.env` com suas chaves reais:
 - `METAAPI_TOKEN`
 - `METAAPI_ACCOUNT_ID`

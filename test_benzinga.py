@@ -10,8 +10,8 @@ if not env_path.exists():
 
 cfg = dotenv_values(env_path)
 key = cfg.get("BENZINGA_API_KEY", "").strip()
-if not key:
-    print("⚠️ BENZINGA_API_KEY ausente no .env")
+if not key or "sua_key_aqui" in key.lower():
+    print("⚠️ BENZINGA_API_KEY ausente/inválida no .env")
     raise SystemExit(0)
 
 url = "https://api.benzinga.com/api/v2/news"
@@ -22,13 +22,16 @@ params = {
     "displayOutput": "headline"
 }
 
-r = requests.get(url, params=params)
-print(f"Status: {r.status_code}")
+try:
+    r = requests.get(url, params=params, timeout=15)
+    print(f"Status: {r.status_code}")
 
-if r.status_code == 200:
-    news = r.json()
-    print(f"Notícias recebidas: {len(news)}")
-    for n in news[:3]:
-        print(f"  → {n.get('title', 'sem título')}")
-else:
-    print(f"Erro: {r.text[:200]}")
+    if r.status_code == 200:
+        news = r.json()
+        print(f"Notícias recebidas: {len(news)}")
+        for n in news[:3]:
+            print(f"  → {n.get('title', 'sem título')}")
+    else:
+        print(f"Erro: {r.text[:200]}")
+except requests.RequestException as exc:
+    print(f"❌ Falha de rede ao consultar Benzinga: {exc}")
