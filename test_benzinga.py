@@ -1,8 +1,18 @@
 import requests
+from pathlib import Path
 from dotenv import dotenv_values
 
-cfg = dotenv_values("/root/maria-helena/.env")
+project_root = Path(__file__).resolve().parent
+env_path = project_root / ".env"
+if not env_path.exists():
+    print(f"⚠️ Arquivo .env não encontrado em {env_path}")
+    raise SystemExit(0)
+
+cfg = dotenv_values(env_path)
 key = cfg.get("BENZINGA_API_KEY", "").strip()
+if not key:
+    print("⚠️ BENZINGA_API_KEY ausente no .env")
+    raise SystemExit(0)
 
 url = "https://api.benzinga.com/api/v2/news"
 params = {
