@@ -1,14 +1,31 @@
 import asyncio
 import json
 from datetime import datetime, timezone
+from pathlib import Path
 from dotenv import dotenv_values
 from metaapi_cloud_sdk import MetaApi
 
+ROOT = Path(__file__).resolve().parent
+ENV_PATH = ROOT / ".env"
+DATA_PATH = ROOT / "data" / "xauusd_m5.json"
+
+
+def load_required_env() -> tuple[str, str]:
+    cfg = dotenv_values(ENV_PATH)
+    token = (cfg.get("METAAPI_TOKEN") or "").strip()
+    account_id = (cfg.get("METAAPI_ACCOUNT_ID") or "").strip()
+    if not token or token == "seu_token_aqui":
+        raise RuntimeError(f"METAAPI_TOKEN ausente/invalido em {ENV_PATH}")
+    if not account_id or account_id == "seu_account_id_aqui":
+        raise RuntimeError(f"METAAPI_ACCOUNT_ID ausente/invalido em {ENV_PATH}")
+    return token, account_id
+
+
 async def main():
-    cfg = dotenv_values("/root/maria-helena/.env")
-    api = MetaApi(cfg["METAAPI_TOKEN"].strip())
+    token, account_id = load_required_env()
+    api = MetaApi(token)
     account = await api.metatrader_account_api.get_account(
-        cfg["METAAPI_ACCOUNT_ID"].strip()
+        account_id
     )
     await account.wait_connected()
 
@@ -35,7 +52,8 @@ async def main():
               'high': c['high'], 'low': c['low'],
               'close': c['close'], 'volume': c['tickVolume']} for c in todos]
 
-    with open("/root/maria-helena/data/xauusd_m5.json", "w") as f:
+    DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(DATA_PATH, "w", encoding="utf-8") as f:
         json.dump(dados, f)
 
     print(f"\n✅ Salvo: {len(dados)} candles")
