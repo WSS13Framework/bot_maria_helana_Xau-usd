@@ -1,8 +1,13 @@
 import requests
+from pathlib import Path
 from dotenv import dotenv_values
 
-cfg = dotenv_values("/root/maria-helena/.env")
+ENV_PATH = Path(__file__).resolve().parent / ".env"
+cfg = dotenv_values(ENV_PATH)
 key = cfg.get("BENZINGA_API_KEY", "").strip()
+
+if not key or key == "sua_key_aqui":
+    raise RuntimeError(f"BENZINGA_API_KEY ausente/invalido em {ENV_PATH}")
 
 url = "https://api.benzinga.com/api/v2/news"
 params = {
