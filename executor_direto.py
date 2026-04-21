@@ -1,15 +1,37 @@
-import os, time, hmac, hashlib, requests
+import os
+import time
+import hmac
+import hashlib
+from pathlib import Path
+import requests
 from urllib.parse import urlencode
+
+def _placeholder(value: str) -> bool:
+    normalized = value.strip().lower()
+    return (
+        not normalized
+        or "aqui" in normalized
+        or normalized.startswith("seu_")
+        or normalized.startswith("sua_")
+    )
 
 def main():
     print("🤖 TESTE DE CONEXÃO DIRETA COM FUTUROS DA BINANCE 🤖")
     print("="*55)
-    with open('.env') as f:
+    env_path = Path(__file__).resolve().parent / ".env"
+    if not env_path.exists():
+        print(f"⚠️ Arquivo .env não encontrado em {env_path}")
+        return
+
+    with env_path.open() as f:
         for line in f:
             k, _, v = line.strip().partition('=')
             os.environ[k] = v
-    api_key = os.environ.get("BINANCE_API_KEY")
-    api_secret = os.environ.get("BINANCE_SECRET_KEY")
+    api_key = os.environ.get("BINANCE_API_KEY", "")
+    api_secret = os.environ.get("BINANCE_SECRET_KEY", "")
+    if _placeholder(api_key) or _placeholder(api_secret):
+        print("⚠️ BINANCE_API_KEY ou BINANCE_SECRET_KEY ausente no .env")
+        return
     print(f"✅ API Key: {api_key[:8]}...")
     timestamp = int(time.time() * 1000)
     params = {'timestamp': timestamp}

@@ -1,16 +1,45 @@
 import asyncio
 import json
 from datetime import datetime, timezone
+from pathlib import Path
 from dotenv import dotenv_values
 from metaapi_cloud_sdk import MetaApi
 
+PLACEHOLDER_MARKERS = (
+    "seu_",
+    "sua_",
+    "_aqui",
+)
+
+
+def _is_placeholder(value: str) -> bool:
+    normalized = value.strip().lower()
+    return not normalized or any(marker in normalized for marker in PLACEHOLDER_MARKERS)
+
+
 async def main():
-    cfg = dotenv_values("/root/maria-helena/.env")
-    api = MetaApi(cfg["METAAPI_TOKEN"].strip())
-    account = await api.metatrader_account_api.get_account(
-        cfg["METAAPI_ACCOUNT_ID"].strip()
-    )
-    await account.wait_connected()
+    project_root = Path(__file__).resolve().parent
+    env_path = project_root / ".env"
+    if not env_path.exists():
+        print(f"⚠️ Arquivo .env não encontrado em {env_path}")
+        return
+
+    cfg = dotenv_values(env_path)
+    token = cfg.get("METAAPI_TOKEN", "").strip()
+    account_id = cfg.get("METAAPI_ACCOUNT_ID", "").strip()
+    if _is_placeholder(token) or _is_placeholder(account_id):
+        print("⚠️ METAAPI_TOKEN ou METAAPI_ACCOUNT_ID ausente/placeholder no .env")
+        return
+
+    try:
+        api = MetaApi(token)
+        account = await api.metatrader_account_api.get_account(
+            account_id
+        )
+        await account.wait_connected()
+    except Exception as exc:
+        print(f"❌ Falha ao conectar na MetaAPI: {exc}")
+        return
 
     todos = []
     end_time = datetime.now(timezone.utc)
@@ -35,7 +64,11 @@ async def main():
               'high': c['high'], 'low': c['low'],
               'close': c['close'], 'volume': c['tickVolume']} for c in todos]
 
-    with open("/root/maria-helena/data/xauusd_m5.json", "w") as f:
+    data_dir = project_root / "data"
+    data_dir.mkdir(exist_ok=True)
+    output_path = data_dir / "xauusd_m5.json"
+
+    with output_path.open("w", encoding="utf-8") as f:
         json.dump(dados, f)
 
     print(f"\n✅ Salvo: {len(dados)} candles")

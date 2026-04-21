@@ -1,6 +1,8 @@
 .env
 *.json
 venv/
+.venv/
+.python-packages/
 __pycache__/
 *.pyc
 logs/
