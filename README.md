@@ -11,6 +11,7 @@ Sistema de inteligencia para trading de ouro XAU/USD.
 
 1. Crie e ative um ambiente virtual Python:
    - `python3 -m venv .venv`
+   - se o comando acima falhar por ausência de `ensurepip`, use: `python3 -m virtualenv .venv`
    - `source .venv/bin/activate`
 2. Instale dependências:
    - `pip install -r requirements.txt`
