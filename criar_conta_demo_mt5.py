@@ -37,7 +37,7 @@ from pathlib import Path
 
 from dotenv import dotenv_values
 from metaapi_cloud_sdk import MetaApi
-from metaapi_cloud_sdk.clients.error_handler import ValidationException
+from metaapi_cloud_sdk.clients.error_handler import ApiException, ValidationException
 
 # Mesmo repo com ou sem paths.py (ex.: VPS /root/maria-helena)
 ENV_PATH = Path(__file__).resolve().parent / ".env"
@@ -57,19 +57,24 @@ def _validar_cli(args: argparse.Namespace) -> int | None:
         print("--tipo-conta não pode estar vazio.", file=sys.stderr)
         return 2
     norm = tipo.upper().replace(" ", "_").replace("-", "_")
+    tipo_u = tipo.upper()
     if norm in (
         "VALOR_EXACTO_MT5",
         "VALOR_EXACTO",
+        "NOME_EXACTO_DO_MT5",
+        "NOME_EXACTO_MT5",
         "SEU_TIPO_AQUI",
         "TIPO_CONTA",
         "ACCOUNT_TYPE",
-    ) or ("VALOR" in norm and "EXACTO" in norm):
+        "TYPE",
+    ) or ("EXACTO" in tipo_u and "MT5" in tipo_u) or ("VALOR" in norm and "EXACTO" in norm):
         print(
-            "Erro: --tipo-conta não pode ser um placeholder da documentação.\n"
+            "Erro: --tipo-conta não pode ser um placeholder (ex. NOME_EXACTO_DO_MT5 ou texto com EXACTO+MT5).\n"
             "  No MT5 Infinox: Ficheiro → Abrir uma conta → Demo → copie o nome exacto do tipo\n"
             "  de conta da lista (cada broker usa strings diferentes).\n"
             "  Já tem conta demo (ex. login 100112613)? Não use este script: no MetaAPI Cloud use\n"
-            "  Add account com login, servidor InfinoxLimited-MT5Demo e senhas do broker.",
+            "  Add account com login, servidor InfinoxLimited-MT5Demo e senhas do broker.\n"
+            "  Nota: alguns brokers não permitem criar demo pela API da MetaAPI — aí só pelo MT5 + Add account.",
             file=sys.stderr,
         )
         return 2
@@ -112,8 +117,11 @@ async def run(args: argparse.Namespace) -> int:
         print(f"Erro da API (validação): {e}", file=sys.stderr)
         _print_validation_details(e)
         return 1
+    except ApiException as e:
+        print(f"Erro API HTTP {getattr(e, 'status_code', '?')}: {e}", file=sys.stderr)
+        return 1
     except Exception as e:
-        print(f"Erro da API: {e}", file=sys.stderr)
+        print(f"Erro: {e}", file=sys.stderr)
         return 1
 
     print("Conta MT5 demo criada (broker via MetaAPI):\n")
