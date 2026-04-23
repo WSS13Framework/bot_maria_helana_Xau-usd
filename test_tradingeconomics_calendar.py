@@ -39,8 +39,10 @@ _TE_PLACEHOLDER_MARKERS = (
     "PARTE_ANTES",
     "PARTE_DEPOIS",
     "DOIS_PONTOS",
-    "CLIENT_REAL",  # explicação genérica copiada literalmente
+    "CLIENT_REAL",
     "SECRET_REAL",
+    "CLIENT_DO_SITE",  # texto de exemplo copiado da documentação
+    "SECRET_DO_SITE",
     "SEU_CLIENT",
     "SEU_SECRET",
     "YOUR_CLIENT",
