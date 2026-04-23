@@ -12,17 +12,20 @@ cd /CAMINHO/DO/CLONE/bot_maria_helana_Xau-usd
 git pull --ff-only origin main
 
 make setup
+make install
 make env-init
 chmod +x scripts/maria_exchange.sh
 ```
 
-Definir chaves **sem abrir `nano`** (repete uma linha por chave; troca os `…` pelos valores reais):
+**Importante:** sempre que fizeres `git pull` e mudarem os requisitos (ou for a **primeira vez** depois de existir `requirements.txt`), corre **`make install`** antes de `make test-apis-*` ou `make maria-refresh-context`. Sem isto aparece `ModuleNotFoundError: dotenv` ou `requests`.
+
+Definir chaves **sem abrir `nano`** — **não** uses o carácter `…` como valor; cola o token / ID **reais** (ex.: copiar do `.env` do Moneta só o valor, ou da consola MetaAPI):
 
 ```bash
-./scripts/maria_exchange.sh env-set METAAPI_TOKEN '…'
-./scripts/maria_exchange.sh env-set METAAPI_ACCOUNT_ID '…'
-./scripts/maria_exchange.sh env-set TWELVEDATA_API_KEY '…'
-./scripts/maria_exchange.sh env-set BENZINGA_API_KEY '…'
+./scripts/maria_exchange.sh env-set METAAPI_TOKEN 'eyJ...token_real...'
+./scripts/maria_exchange.sh env-set METAAPI_ACCOUNT_ID 'id-guid-da-conta'
+./scripts/maria_exchange.sh env-set TWELVEDATA_API_KEY 'chave_twelve'
+./scripts/maria_exchange.sh env-set BENZINGA_API_KEY 'chave_benzinga'
 ```
 
 Testar APIs (não envia ordens):
@@ -43,6 +46,7 @@ Isto actualiza notícias/cotações no snapshot, recalcula o regime e valida o J
 ```bash
 cd /CAMINHO/DO/CLONE/bot_maria_helana_Xau-usd
 git pull --ff-only origin main
+make install
 make maria-refresh-context
 ```
 
@@ -129,3 +133,5 @@ Se algo falhar, copia a **mensagem de erro completa** e o output de `make maria-
 - **`fatal: invalid refspec '/opt/...'`** — Colaram-se dois comandos na mesma linha (ex.: `maincd` em vez de `main` Enter `cd`). Correr `git pull --ff-only origin main` **sozinho** numa linha.
 - **`AVISO: sem requirements.txt`** no servidor — fazer `git pull` (o ficheiro tem de existir no Git) e `make install` ou `make setup` outra vez.
 - **ML / Ray** (opcional): `.venv/bin/pip install -r requirements-ml.txt` na raiz do clone.
+- **MetaAPI `401` / “no auth-token header provided”** — o `METAAPI_TOKEN` neste clone está **vazio**, é o placeholder `…`, ou foi cortado ao colar. Voltar a gravar: `./scripts/maria_exchange.sh env-set METAAPI_TOKEN 'cole_o_token_real'` (token da [consola MetaAPI](https://app.metaapi.cloud/)). O `.env` do **MonetaBot-Pro** é outro ficheiro: copiar o valor **manualmente**, não o path.
+- **`make test-apis-sem-te-calendario` falha mas `make maria-refresh-context` corre** — snapshot/regime só precisam de Twelve/Benzinga/TE conforme o `.env`; o teste MetaAPI é separado. Corrigir o token para o *make* completo passar a verde.
