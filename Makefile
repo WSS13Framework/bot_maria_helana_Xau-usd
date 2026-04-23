@@ -1,39 +1,57 @@
 # Maria Helena — comandos padronizados (PC ou VPS, na raiz do repo)
 # Ver tudo: make help
+#
+# Deteção automática:
+#   - venv: pasta ./venv (VPS) se existir; senão ./.venv
+#   - requisitos: requirements.txt ou, em falta, requirements-ml.txt
 
-PYTHON       ?= python3
-VENV         ?= .venv
-PIP          := $(VENV)/bin/pip
-PY           := $(VENV)/bin/python3
-BRANCH       ?= main
+PYTHON ?= python3
+BRANCH  ?= main
+
+# Preferir venv/ na VPS; no PC típico usa-se .venv após primeiro setup
+VENV ?= $(shell if [ -d venv ]; then echo venv; else echo .venv; fi)
+
+PIP := $(VENV)/bin/pip
+PY  := $(VENV)/bin/python3
+
+# Primeiro ficheiro que existir (ordem: leve → completo)
+REQFILE := $(firstword $(wildcard requirements.txt requirements-ml.txt))
 
 .PHONY: help setup install env-init env-list test-metaapi test-benzinga pull git-status check
 
 help:
-	@echo "=== Maria Helena — make (sempre na pasta do repositório) ==="
+	@echo "=== Maria Helena — make (na raiz do repositório) ==="
 	@echo ""
-	@echo "  make setup          Cria $(VENV), instala requirements.txt"
-	@echo "  make install        Só pip install (venv já existe)"
-	@echo "  make env-init       Copia .env.example -> .env se .env não existir"
-	@echo "  make env-list       Lista chaves do .env (mascarado) via set_env.py"
+	@echo "  VENV detectado:    $(VENV)  (forçar: make X VENV=venv)"
+	@echo "  Requisitos:       $(REQFILE) (ou vazio se não houver ficheiro)"
+	@echo ""
+	@echo "  make setup          Cria venv (se faltar) + pip install -r <requisitos>"
+	@echo "  make install        Só pip install"
+	@echo "  make env-init       .env a partir de .env.example se não existir"
+	@echo "  make env-list       set_env.py list"
 	@echo "  make test-metaapi   test_conexao.py"
 	@echo "  make test-benzinga  test_benzinga.py"
 	@echo "  make pull           git pull --ff-only origin BRANCH=$(BRANCH)"
 	@echo "  make git-status     git status -sb"
-	@echo "  make check          Importa deps principais no venv"
+	@echo "  make check          import metaapi + dotenv + pandas"
 	@echo ""
-	@echo "Na VPS o venv costuma chamar-se venv/:  make setup VENV=venv"
-	@echo "Branch do bot (exemplo):               make pull BRANCH=cursor/exogenous-shock-flags-a713"
+	@echo "  make pull BRANCH=cursor/exogenous-shock-flags-a713   # exemplo branch bot"
 	@echo ""
 
 setup:
 	@test -d "$(VENV)" || $(PYTHON) -m venv "$(VENV)"
 	$(PIP) install -U pip
-	$(PIP) install -r requirements.txt
+	@if [ -n "$(REQFILE)" ]; then \
+	  echo "pip install -r $(REQFILE)"; \
+	  $(PIP) install -r "$(REQFILE)"; \
+	else \
+	  echo "AVISO: sem requirements.txt nem requirements-ml.txt — venv pronto, pacotes do projeto não instalados."; \
+	fi
 	@echo "OK. Ative: source $(VENV)/bin/activate"
 
 install:
-	$(PIP) install -r requirements.txt
+	@if [ -z "$(REQFILE)" ]; then echo "Sem ficheiro de requisitos." >&2; exit 1; fi
+	$(PIP) install -r "$(REQFILE)"
 
 env-init:
 	@if [ ! -f .env ]; then cp .env.example .env && chmod 600 .env && echo "Criado .env — use: $(PY) set_env.py set CHAVE valor"; else echo ".env já existe (não sobrescrito)"; fi

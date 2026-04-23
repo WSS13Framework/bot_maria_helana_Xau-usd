@@ -18,7 +18,7 @@ Na **raiz do clone** (PC ou VPS):
 
 ```bash
 make help              # lista comandos
-make setup             # primeiro uso: venv + pip (na VPS: make setup VENV=venv)
+make setup             # primeiro uso: venv + pip (detecta ./venv ou ./.venv e requirements.txt / requirements-ml.txt)
 make env-init          # .env a partir do exemplo, se ainda não existir
 source .venv/bin/activate   # ou: source venv/bin/activate
 make test-metaapi
