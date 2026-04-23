@@ -26,6 +26,8 @@ Comandos:
   handoff             make regime-handoff-read
   refresh-context     snapshot → regime → handoff (sem candles)
   refresh-bars        features → refresh-context
+  candles             python coletar_candles.py (MetaAPI → data/xauusd_m5.json)
+  demo-dry            MARIA_EXECUCAO_DEMO=1 MARIA_EXECUCAO_DRY=1 make execucao-demo
   env-set KEY VAL     python3 set_env.py set KEY VAL (sem editor)
   env-list            python3 set_env.py list
 EOF
@@ -75,6 +77,15 @@ case "$cmd" in
     make -C "$ROOT" snapshot-mercado
     make -C "$ROOT" regime-sugerido
     make -C "$ROOT" regime-handoff-read
+    ;;
+  candles)
+    if [[ -x .venv/bin/python3 ]]; then PY=(.venv/bin/python3); elif [[ -x venv/bin/python3 ]]; then PY=(venv/bin/python3); else PY=(python3); fi
+    exec "${PY[0]}" "$ROOT/coletar_candles.py"
+    ;;
+  demo-dry)
+    export MARIA_EXECUCAO_DEMO="${MARIA_EXECUCAO_DEMO:-1}"
+    export MARIA_EXECUCAO_DRY="${MARIA_EXECUCAO_DRY:-1}"
+    make -C "$ROOT" execucao-demo
     ;;
   env-set)
     if [[ $# -lt 2 ]]; then echo "Uso: env-set CHAVE valor" >&2; exit 1; fi

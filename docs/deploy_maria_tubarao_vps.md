@@ -51,7 +51,11 @@ chmod +x scripts/maria_exchange.sh
 | `./scripts/maria_exchange.sh test-apis` | Testes MetaAPI + Twelve + Benzinga (sem calendário TE). |
 | `./scripts/maria_exchange.sh refresh-context` | Snapshot → regime → validação handoff (sem exigir candles). |
 | `./scripts/maria_exchange.sh refresh-bars` | Features M5 + *refresh-context* (precisa `data/xauusd_m5.json`). |
+| `./scripts/maria_exchange.sh candles` | `coletar_candles.py` (actualiza M5). |
+| `./scripts/maria_exchange.sh demo-dry` | Execução demo com `DEMO=1` e `DRY=1` por omissão. |
 | `./scripts/maria_exchange.sh env-list` | Lista chaves via `set_env.py`. |
+
+Equivalente com `make` na raiz: `make maria-doctor`, `make maria-pull`, `make maria-refresh-context`, `make maria-refresh-bars`, `make maria-demo-dry`, `make coletar-candles`.
 
 ---
 

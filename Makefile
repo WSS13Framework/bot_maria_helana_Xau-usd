@@ -17,7 +17,7 @@ PY  := $(VENV)/bin/python3
 # Primeiro ficheiro que existir (ordem: leve → completo)
 REQFILE := $(firstword $(wildcard requirements.txt requirements-ml.txt))
 
-.PHONY: help setup install env-init env-list test-metaapi test-benzinga test-te-calendar test-twelvedata test-apis test-apis-sem-te-calendario snapshot-mercado features-gaps regime-sugerido regime-handoff-read execucao-demo pull git-status check
+.PHONY: help setup install env-init env-list test-metaapi test-benzinga test-te-calendar test-twelvedata test-apis test-apis-sem-te-calendario snapshot-mercado features-gaps regime-sugerido regime-handoff-read execucao-demo coletar-candles maria-doctor maria-pull maria-refresh-context maria-refresh-bars maria-demo-dry pull git-status check
 
 help:
 	@echo "=== Maria Helena — make (na raiz do repositório) ==="
@@ -39,7 +39,8 @@ help:
 	@echo "  make features-gaps      features gap/imbalance sobre data/xauusd_m5.json"
 	@echo "  make regime-sugerido    agrega snapshot + features → data/regime_sugerido.json (regras)"
 	@echo "  make regime-handoff-read valida regime_sugerido.json (contrato v1; sem ordens)"
-	@echo "  scripts/maria_exchange.sh doctor|pull|refresh-context|env-set …  (VPS; sem nano)"
+	@echo "  make coletar-candles    MetaAPI → data/xauusd_m5.json"
+	@echo "  make maria-doctor | maria-pull | maria-refresh-context | maria-refresh-bars | maria-demo-dry  (atalhos ao maria_exchange.sh)"
 	@echo "  make execucao-demo      agente ordem demo (MARIA_EXECUCAO_DEMO=1; DRY por defeito)"
 	@echo "  make pull           git pull --ff-only origin BRANCH=$(BRANCH)"
 	@echo "  make git-status     git status -sb"
@@ -102,6 +103,24 @@ regime-handoff-read:
 
 execucao-demo:
 	@$(PY) agents/execucao_demo.py
+
+coletar-candles:
+	@$(PY) coletar_candles.py
+
+maria-doctor:
+	@bash scripts/maria_exchange.sh doctor
+
+maria-pull:
+	@bash scripts/maria_exchange.sh pull "$(BRANCH)"
+
+maria-refresh-context:
+	@bash scripts/maria_exchange.sh refresh-context
+
+maria-refresh-bars:
+	@bash scripts/maria_exchange.sh refresh-bars
+
+maria-demo-dry:
+	@bash scripts/maria_exchange.sh demo-dry
 
 pull:
 	git fetch origin
