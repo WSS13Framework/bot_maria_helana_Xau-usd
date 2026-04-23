@@ -52,6 +52,24 @@ A estratégia pode ser **simples**, sobretudo em **setup de abertura** (*opening
 
 **Para a Maria Helena (automação):** quando houver envio de ordens, o desenho deve permitir **política “imutável após entrada”** (SL/TP só pelo plano pré-definido, sem *tweaks* emocionais), **janelas por sessão**, e **registo auditável**. Fases iniciais: só **alerta** ou **demo**, até a equipa validar números e risco.
 
+**Demo “real” (MT5 via MetaAPI):** é **boa prática** um agente de **execução** colocar ordens **só em conta demo** ligada ao mesmo broker/lógica que o live — assim validam se a **ordem é válida** (símbolo, lote, SL/TP, horário de sessão) sem capital real. Bugs de execução em demo são baratos; em live são caros.
+
+---
+
+## Agentes por papel (“Sou notícias”, “Sou macro”, …)
+
+Cada agente com **uma responsabilidade** clara (fácil de testar e de desligar):
+
+| Papel (frase mental) | Função | Estado no repo |
+|----------------------|--------|----------------|
+| **Sou contexto** | `snapshot_mercado.py` — junta Twelve Data + Benzinga + TE (indicadores). | **Feito** |
+| **Sou preço / gaps** | Ler candles XAU, regras de *gap* / zona (`docs/gaps_oportunidade_xau.md`). | **A fazer** |
+| **Sou notícias** | Classificar manchetes (tema, impacto ouro) a partir do JSON. | **A fazer** |
+| **Sou macro** | Resumir indicadores / regime a partir do snapshot + TE. | **A fazer** |
+| **Sou execução (demo)** | Se *setup* + risco + janela baterem, enviar ordem **só em demo** + log imutável. | **A fazer** (último, depois de validar regras) |
+
+**Treino vs operar:** primeiro **rotular** e **simular** (backtest / demo); só depois aumentar autonomia. “Ela posiciona-se e **mantém**” = política de **não mexer** na ordem após entrada, salvo regra escrita (ex.: *time stop*).
+
 ---
 
 ## Posso já criar os agentes?
@@ -62,7 +80,7 @@ A estratégia pode ser **simples**, sobretudo em **setup de abertura** (*opening
 2. **Sem “IA autónoma” no primeiro dia** — Começar por regras + números (ex.: *z-score* de retorno DXY, contagem de palavras‑chave nas notícias), depois embeddings / LLM se fizer sentido.
 3. **Saída** — Ficheiro ou log com “regime sugerido” + timestamp, para auditar antes de ligar a ordens reais.
 
-O código dos agentes vive nesta pasta `agents/`; integração com ordens MT5 fica **depois** de validar offline / em papel.
+O código dos agentes vive nesta pasta `agents/`; integração com ordens MT5 começa em **conta demo** para validar fluxo; **live** só após auditoria.
 
 ---
 
@@ -100,4 +118,6 @@ Opcional: `TWELVEDATA_SNAPSHOT_SYMBOLS="EUR/USD,DX-Y.NYB"` (vários símbolos se
 
 ## Próximo passo técnico sugerido
 
-Camada seguinte: ler `market_snapshot.json` + candles MetaAPI e calcular **regime** / scores (regras ou ML), sem executar ordens até validação.
+1. **`agents/features_gaps.py`** — candles + regras de *gap* / etiquetas.  
+2. **Classificação de notícias / macro** — lê o snapshot, escreve `data/regime_sugerido.json` (regras).  
+3. **`agents/execucao_demo.py`** (nome sugerido) — só se `METAAPI_ACCOUNT_ID` for **demo** e *flag* `MARIA_EXECUCAO_DEMO=1` no `.env`; ordem com SL/TP fixos + log; **sem** live até decisão explícita da equipa.
