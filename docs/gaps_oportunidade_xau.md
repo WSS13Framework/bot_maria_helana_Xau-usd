@@ -29,6 +29,10 @@ Assim o “ensino” é: **juntar candles + regras → rótulos** (ex.: `zona_pr
 
 ---
 
+## 2b. Só regras — sem “arsenal” ML (ex.: Hydra)
+
+É **perfeitamente válido** ficar-se por **regras explícitas** em Python/`pandas`: thresholds, janelas de sessão, padrões de velas, cruzamento com ATR. Isso **já é informação extraída** (etiquetas, scores, alertas) e alimenta a Maria Helena sem frameworks de experimentação pesada (**Hydra**, *OmegaConf*, orquestradores de *deep learning*, etc.) — só entram se a equipa **decidir** mais tarde, por necessidade real de hiperparâmetros e não por defeito.
+
 ## 3. Pipeline de treino (recomendado)
 
 1. **Exportar histórico** XAU (ex.: M5) para `data/` (script existente ou novo, só leitura MetaAPI).
