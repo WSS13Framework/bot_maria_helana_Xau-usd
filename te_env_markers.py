@@ -29,6 +29,8 @@ TE_PLACEHOLDER_FRAGMENTS: tuple[str, ...] = (
     "NOME_EXACTO",
     "INSERT_HERE",
     "TUTORIAL",
+    "COLAR_CLIENT_AQUI",
+    "COLAR_SECRET_AQUI",
 )
 
 

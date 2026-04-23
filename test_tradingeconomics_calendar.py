@@ -103,9 +103,9 @@ def main() -> int:
         print(raw[:800])
         if r.status_code == 401:
             print(
-                "\nDica: (1) git pull / servidor_atualizar.sh se o código for antigo. "
-                "(2) Confirme no painel TE o par real (não placeholders do README). "
-                "(3) Opcional: TRADINGECONOMICS_API_KEY='client:secret' numa variável só.",
+                "\nDica: (1) git pull se o código for antigo. "
+                "(2) Credenciais só do painel API do site TE (não copie frases de tutoriais). "
+                "(3) TRADINGECONOMICS_API_KEY = client e secret do site separados por um dois-pontos.",
                 file=sys.stderr,
             )
         return 1

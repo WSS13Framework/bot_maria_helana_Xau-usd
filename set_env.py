@@ -120,15 +120,18 @@ def cmd_set(ns: argparse.Namespace) -> int:
     if not data and not ENV_PATH.is_file():
         cmd_init(argparse.Namespace())
         _, data = _read_env()
+    if key.upper().startswith("TRADINGECONOMICS_") and _te_placeholder(value):
+        print(
+            "ERRO: Valor recusado — parece texto de tutorial (ex.: COLAR_*_AQUI, PRIMEIRA_STRING…), "
+            "não credenciais do painel tradingeconomics.com.\n"
+            "No browser: copie Client e Secret (duas strings do site) e volte a correr este comando "
+            "colando só esses caracteres dentro das aspas, sem palavras de instrução.",
+            file=sys.stderr,
+        )
+        return 1
     data[key] = value
     _write_env(data, preserve_comments=ENV_PATH.is_file())
     print(f"OK {key}=*** ({ENV_PATH})")
-    if key.upper().startswith("TRADINGECONOMICS_") and _te_placeholder(value):
-        print(
-            "AVISO: Este valor parece texto de TUTORIAL (README/chat), não Client/Secret do site TE. "
-            "A API responderá 401. Copie do browser (painel API) — sem PRIMEIRA_STRING, CLIENT_DO_SITE, etc.",
-            file=sys.stderr,
-        )
     return 0
 
 
