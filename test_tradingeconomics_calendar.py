@@ -108,6 +108,17 @@ def main() -> int:
                 "(3) TRADINGECONOMICS_API_KEY = client e secret do site separados por um dois-pontos.",
                 file=sys.stderr,
             )
+        elif r.status_code == 403:
+            print(
+                "\n403 = credenciais aceites pelo servidor, mas o plano/conta não inclui ESTE recurso "
+                "(calendário económico por API). Contas de teste / níveis sem add-on de calendário "
+                "devolvem esta mensagem.\n"
+                "Solução: em tradingeconomics.com veja API pricing e confirme que o plano inclui "
+                "Economic Calendar / API do calendário; ou escreva a support@tradingeconomics.com.\n"
+                "Docs: https://tradingeconomics.com/api/calendar.aspx · "
+                "https://tradingeconomics.com/api/pricing.aspx",
+                file=sys.stderr,
+            )
         return 1
     if not raw:
         print("Resposta vazia — verifique credenciais e plano.")
