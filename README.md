@@ -37,9 +37,15 @@ make test-metaapi && make test-te-calendar && make test-twelvedata && make test-
 
 Ou num só comando: `make test-apis`.
 
+Se o plano **Trading Economics** não incluir **calendário na API** (resposta **403** em `make test-te-calendar`), use o conjunto de testes **sem** esse passo:
+
+```bash
+make test-apis-sem-te-calendario   # MetaAPI + Twelve Data + Benzinga
+```
+
 **Problemas frequentes na VPS**
 
-- `make: *** No rule to make target 'test-apis'` — o clone está **desactualizado**. Na pasta do repo: `./servidor_atualizar.sh main` ou `make pull`, depois `make help` e confirme que aparece `test-apis`.
+- `make: *** No rule to make target 'test-apis'` ou **`test-apis-sem-te-calendario`** — o clone está **desactualizado**. `./servidor_atualizar.sh main` ou `make pull`, depois `make help` e confirme as linhas `test-apis` e `test-apis-sem-te-calendario`.
 - Trading Economics **401** — quase sempre **valores de exemplo no `.env`** (textos como `COLA_AQUI…`, `CLIENT_REAL`, `CLIENT_DO_SITE` — não são chaves do site). Abra o painel TE, copie **só** o Client e o Secret que lá aparecem, e grave com `set_env.py` **sem** essas frases. Se ainda 401 com valores reais, plano inactivo ou contactar suporte TE.
 - Trading Economics **403** (“no access to this feature”) — as chaves estão **correctas**; o **plano não inclui** esse produto na API. Exemplo: plano com **indicadores económicos + mercado financeiro** (cotações, etc.) e **500 pedidos/mês**, mas **sem** calendário, notícias, alertas ou live no contrato — o teste `make test-te-calendar` chama precisamente o **calendário** e a TE devolve 403. Para a prioridade A (CPI/NFP/FOMC no calendário) é preciso um plano que liste **Economic Calendar** / API de calendário (muitas vezes **Enterprise** ou add-on equivalente). Ver [API calendar](https://tradingeconomics.com/api/calendar.aspx) · [pricing](https://tradingeconomics.com/api/pricing.aspx). Até lá, usem os endpoints que o vosso contrato cobre (indicadores / mercados) ou outra fonte para macro.
 - Twelve Data **apikey incorrect** com HTTP 200 — a chave no `.env` está errada ou truncada; confira em [API keys](https://twelvedata.com/account/api-keys). Diagnóstico: o teste imprime comprimento e o primeiro carácter Unicode (BOM `U+FEFF` indica ficheiro/cópia estragada).
@@ -68,10 +74,11 @@ Pipeline alvo (a implementar): ingestão por fonte → normalização → *featu
 
 ```bash
 cd /caminho/do/clone && source venv/bin/activate   # ou .venv
-make test-apis    # MetaAPI + TE calendário + Twelve Data + Benzinga em sequência
+make test-apis    # inclui TE calendário — falha com 403 se o plano não tiver esse recurso
+make test-apis-sem-te-calendario   # recomendado enquanto o TE for só indicadores/mercado
 ```
 
-*Nota:* `make test-te-calendar` pode responder **403** se o plano TE não incluir calendário na API; nesse caso as outras três linhas do `make test-apis` ainda validam MetaAPI, Twelve Data e Benzinga.
+*Nota:* `make test-apis` **para** no primeiro erro; com **403** no calendário TE, Twelve Data e Benzinga **não chegam a correr**. Use `make test-apis-sem-te-calendario` até haver add-on de calendário ou outra fonte.
 
 ---
 

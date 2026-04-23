@@ -17,7 +17,7 @@ PY  := $(VENV)/bin/python3
 # Primeiro ficheiro que existir (ordem: leve → completo)
 REQFILE := $(firstword $(wildcard requirements.txt requirements-ml.txt))
 
-.PHONY: help setup install env-init env-list test-metaapi test-benzinga test-te-calendar test-twelvedata test-apis pull git-status check
+.PHONY: help setup install env-init env-list test-metaapi test-benzinga test-te-calendar test-twelvedata test-apis test-apis-sem-te-calendario pull git-status check
 
 help:
 	@echo "=== Maria Helena — make (na raiz do repositório) ==="
@@ -33,7 +33,8 @@ help:
 	@echo "  make test-te-calendar   Trading Economics (calendário)"
 	@echo "  make test-twelvedata    Twelve Data (cotação)"
 	@echo "  make test-benzinga      Benzinga (notícias)"
-	@echo "  make test-apis          MetaAPI + TE + Twelve Data + Benzinga (sequencial)"
+	@echo "  make test-apis          MetaAPI + TE calendário + Twelve Data + Benzinga"
+	@echo "  make test-apis-sem-te-calendario   só MetaAPI + Twelve Data + Benzinga (plano TE sem API de calendário)"
 	@echo "  make pull           git pull --ff-only origin BRANCH=$(BRANCH)"
 	@echo "  make git-status     git status -sb"
 	@echo "  make check          import metaapi + dotenv + pandas"
@@ -76,6 +77,10 @@ test-twelvedata:
 
 test-apis: test-metaapi test-te-calendar test-twelvedata test-benzinga
 	@echo "OK — todas as verificações de API concluídas."
+
+# Plano TE sem Economic Calendar na API → 403 em test-te-calendar; use este alvo no dia-a-dia.
+test-apis-sem-te-calendario: test-metaapi test-twelvedata test-benzinga
+	@echo "OK — APIs sem teste de calendário TE (MetaAPI + Twelve Data + Benzinga)."
 
 pull:
 	git fetch origin
