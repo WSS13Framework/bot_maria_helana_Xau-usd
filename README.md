@@ -2,6 +2,25 @@
 
 Sistema de inteligência para trading de ouro XAU/USD.
 
+## Assinaturas das APIs (o que contratar e onde)
+
+Passo a passo para **criar conta / plano** e obter chaves. Depois grave no `.env` com `python3 set_env.py set NOME valor` (não edite o `.env` com `nano` se preferir o script).
+
+| Ordem | Serviço | O que precisa no `.env` | Onde assinar / obter chaves |
+|:-----:|---------|-------------------------|-----------------------------|
+| — | **MetaAPI** | `METAAPI_TOKEN`, `METAAPI_ACCOUNT_ID` | [metaapi.cloud](https://app.metaapi.cloud/) → token na conta; ID da conta MT5 ligada |
+| A | **Trading Economics** | `TRADINGECONOMICS_CLIENT`, `TRADINGECONOMICS_SECRET` | [API pricing](https://tradingeconomics.com/api/pricing.aspx) → registo → painel **API** (par client + secret). O calendário REST usa `c=client:secret` no URL |
+| B | **Twelve Data** | `TWELVEDATA_API_KEY` | [Conta / API keys](https://twelvedata.com/account/api-keys) — há plano gratuito limitado; DXY/VIX estáveis costumam exigir [Prime](https://twelvedata.com/prime) ou [Business](https://twelvedata.com/pricing-business) conforme símbolos |
+| C | **Benzinga Pro** | `BENZINGA_API_KEY`, `BENZINGA_USERNAME` | [Benzinga Pro](https://pro.benzinga.com/pricing/) → API key + username do produto API |
+
+Validação rápida após preencher o `.env`:
+
+```bash
+make test-metaapi && make test-te-calendar && make test-twelvedata && make test-benzinga
+```
+
+Ou num só comando: `make test-apis`.
+
 ## Ordem das fontes macro e mercado (assinatura / prioridade)
 
 Ordem **exacta** para monitorização e features (surpresas de calendário antes de cross‑market estável; notícias por cima como camada adicional):
