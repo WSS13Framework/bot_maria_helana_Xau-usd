@@ -6,6 +6,22 @@ Sistema de inteligência para trading de ouro XAU/USD.
 
 Passo a passo para **criar conta / plano** e obter chaves. Depois grave no `.env` com `python3 set_env.py set NOME valor` (não edite o `.env` com `nano` se preferir o script).
 
+### Ordem exacta de assinatura (macro A → B → C)
+
+1. **A — Trading Economics (primeiro)**  
+   - Preços: [tradingeconomics.com/api/pricing.aspx](https://tradingeconomics.com/api/pricing.aspx)  
+   - API de calendário (quando o plano incluir): [tradingeconomics.com/api/calendar.aspx](https://tradingeconomics.com/api/calendar.aspx)  
+   - Objectivo ideal: CPI / NFP / FOMC com *actual* vs *forecast* (surpresa). *Com plano só indicadores + mercado, usar indicadores e respeitar o teto de pedidos.*
+
+2. **B — Twelve Data Pro (segundo)**  
+   - Individual: [twelvedata.com/prime](https://twelvedata.com/prime)  
+   - Empresarial: [twelvedata.com/pricing-business](https://twelvedata.com/pricing-business)  
+   - Objectivo: DXY, VIX, *rates*, *cross-market* com API estável.
+
+3. **C — Benzinga Pro (terceiro; já em uso na equipa)**  
+   - [pro.benzinga.com/pricing](https://pro.benzinga.com/pricing/)  
+   - Objectivo: *headlines*, fluxo de notícias, event risk.
+
 | Ordem | Serviço | O que precisa no `.env` | Onde assinar / obter chaves |
 |:-----:|---------|-------------------------|-----------------------------|
 | — | **MetaAPI** | `METAAPI_TOKEN`, `METAAPI_ACCOUNT_ID` | [metaapi.cloud](https://app.metaapi.cloud/) → token na conta; ID da conta MT5 ligada |
@@ -41,6 +57,21 @@ Com o **plano TE standard** (indicadores + mercado, **sem** calendário na API),
 | **Benzinga** | **Headlines** e fluxo — event risk (Fed, guerra, bancos) quando o calendário formal não vem da TE. |
 
 **Calendário “surpresa” (actual vs forecast):** sem API de calendário TE, opções são: subir plano mais tarde, usar **notícias + NLP** (Benzinga) como proxy de evento, ou uma fonte de calendário **externa** com licença compatível. Até lá, documentar no código que a camada A por TE é **indicadores + contexto**, não releases ao segundo.
+
+### Agentes autónomos (próxima fase de código)
+
+Objectivo: **agentes** que consultam de forma autónoma **Benzinga** (C), **Twelve Data** (B) e **Trading Economics** (A — no vosso caso sobretudo **indicadores** enquanto o calendário API não estiver no plano), cruzam sinais e produzem **classificação** (numérica e semântica) sobre **o que move o ouro** no mercado (dólar, *rates*, risco, macro, notícias), para apoio **estatístico** e decisão da Maria Helena.
+
+Pipeline alvo (a implementar): ingestão por fonte → normalização → *features* (ex.: embeddings ou etiquetas para texto Benzinga; *z-scores* ou surpresas onde houver série) → agregação por janela temporal → saída interpretável (scores, regimes, alertas). A ordem de **prioridade de negócio** continua **A → B → C**; a ordem de **assinatura** segue a mesma.
+
+**Testar o que já têm (VPS ou máquina com `.env`):**
+
+```bash
+cd /caminho/do/clone && source venv/bin/activate   # ou .venv
+make test-apis    # MetaAPI + TE calendário + Twelve Data + Benzinga em sequência
+```
+
+*Nota:* `make test-te-calendar` pode responder **403** se o plano TE não incluir calendário na API; nesse caso as outras três linhas do `make test-apis` ainda validam MetaAPI, Twelve Data e Benzinga.
 
 ---
 
