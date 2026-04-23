@@ -20,6 +20,26 @@ ROOT = Path(__file__).resolve().parent
 ENV_PATH = ROOT / ".env"
 EXAMPLE_PATH = ROOT / ".env.example"
 
+# Aviso se alguém colar texto de tutorial em vez da chave real (Trading Economics).
+_TE_VALUE_WARN_MARKERS = (
+    "COLA_AQUI",
+    "PARTE_ANTES",
+    "PARTE_DEPOIS",
+    "CLIENT_REAL",
+    "SECRET_REAL",
+    "SEU_CLIENT",
+    "SEU_SECRET",
+    "YOUR_CLIENT",
+    "YOUR_SECRET",
+    "REPLACE_ME",
+    "CHANGEME",
+)
+
+
+def _te_value_looks_like_placeholder(value: str) -> bool:
+    u = value.upper()
+    return any(m in u for m in _TE_VALUE_WARN_MARKERS)
+
 
 def _format_value(value: str) -> str:
     if value == "":
@@ -118,6 +138,13 @@ def cmd_set(ns: argparse.Namespace) -> int:
     data[key] = value
     _write_env(data, preserve_comments=ENV_PATH.is_file())
     print(f"OK {key}=*** ({ENV_PATH})")
+    if key.upper().startswith("TRADINGECONOMICS_") and _te_value_looks_like_placeholder(value):
+        print(
+            "AVISO: Este valor parece um PLACEHOLDER de tutorial (ex.: CLIENT_REAL, COLA_AQUI), "
+            "não uma chave do painel Trading Economics. A API vai responder 401. "
+            "Use os Client/Secret que o site TE mostra após login.",
+            file=sys.stderr,
+        )
     return 0
 
 

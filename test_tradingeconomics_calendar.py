@@ -33,15 +33,28 @@ def _clean_cred(raw: str) -> str:
     return s.strip()
 
 
+# Substrings que aparecem em exemplos de documentação — não são credenciais reais da TE.
+_TE_PLACEHOLDER_MARKERS = (
+    "COLA_AQUI",
+    "PARTE_ANTES",
+    "PARTE_DEPOIS",
+    "DOIS_PONTOS",
+    "CLIENT_REAL",  # explicação genérica copiada literalmente
+    "SECRET_REAL",
+    "SEU_CLIENT",
+    "SEU_SECRET",
+    "YOUR_CLIENT",
+    "YOUR_SECRET",
+    "REPLACE_ME",
+    "CHANGEME",
+    "EXAMPLE_KEY",
+)
+
+
 def _is_doc_placeholder(user: str, secret: str) -> bool:
-    """Detecta texto copiado dos exemplos do README em vez das chaves reais."""
+    """Detecta texto copiado de exemplos em vez das chaves reais do painel Trading Economics."""
     blob = f"{user}\n{secret}".upper()
-    return (
-        "COLA_AQUI" in blob
-        or "PARTE_ANTES" in blob
-        or "PARTE_DEPOIS" in blob
-        or "DOIS_PONTOS" in blob
-    )
+    return any(m in blob for m in _TE_PLACEHOLDER_MARKERS)
 
 
 def _load_te_credentials(cfg: dict) -> tuple[str, str]:
@@ -73,12 +86,12 @@ def main() -> int:
         return 1
     if _is_doc_placeholder(user, secret):
         print(
-            "ERRO: As variáveis contêm texto de EXEMPLO do README (ex.: COLA_AQUI…), "
-            "não as chaves reais do painel Trading Economics.\n"
-            "No site TE copie o par Client e Secret e grave assim (valores reais):\n"
-            "  python3 set_env.py set TRADINGECONOMICS_API_KEY 'SEU_CLIENT:SEU_SECRET'\n"
-            "ou em duas linhas CLIENT / SECRET com os hex/strings do painel — sem usar "
-            "frases como COLA_AQUI.",
+            "ERRO: O .env contém texto de EXEMPLO (tutorial), não as chaves do painel Trading Economics.\n"
+            "No browser: tradingeconomics.com → login → secção API / developer → copie Client e Secret "
+            "(hex ou strings longas geradas pelo site).\n"
+            "No servidor: junte os dois com um dois-pontos no meio e grave com set_env.py na variável "
+            "TRADINGECONOMICS_API_KEY — use só o que copiou do site, sem palavras em inglês tipo "
+            "CLIENT_REAL ou SECRET_REAL.",
             file=sys.stderr,
         )
         return 1
