@@ -3,12 +3,26 @@
 Cria uma conta MetaTrader 5 **demo** via API de provisioning da MetaAPI
 (sem usar o assistente web para este passo).
 
-Requisitos:
-  - METAAPI_TOKEN no .env tem de ser um **JWT** (token de API da MetaAPI), não outro formato.
-  - Perfil de provisioning em https://app.metaapi.cloud/ (por defeito: `default`).
+Requisitos (API oficial):
+  - METAAPI_TOKEN no .env: **JWT** da MetaAPI.
+  - Campos obrigatórios no POST: accountType, balance, email, leverage, name,
+    phone (internacional, ex. +351912345678), serverName.
+  - keywords: recomendado (lista).
+
+O valor de **accountType** tem de coincidir com o que o MT5 / app móvel do broker
+mostra para contas demo. Nem todos os brokers permitem criação via API.
 
 Documentação:
   https://metaapi.cloud/docs/provisioning/api/generateAccount/createMT5DemoAccount/
+
+Exemplo mínimo:
+  python3 criar_conta_demo_mt5.py \\
+    --email 'user@example.com' \\
+    --telefone '+351912345678' \\
+    --tipo-conta 'Standard' \\
+    --servidor InfinoxLimited-MT5Demo \\
+    --alavancagem 1 \\
+    --keywords Infinox
 
 Depois de criar, no painel MetaAPI: **Add account** com login/servidor/senha devolvidos
 para obter o METAAPI_ACCOUNT_ID (UUID) para test_conexao.py / coletar_candles.py.
@@ -17,14 +31,24 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import sys
 from pathlib import Path
 
 from dotenv import dotenv_values
 from metaapi_cloud_sdk import MetaApi
+from metaapi_cloud_sdk.clients.error_handler import ValidationException
 
 # Mesmo repo com ou sem paths.py (ex.: VPS /root/maria-helena)
 ENV_PATH = Path(__file__).resolve().parent / ".env"
+
+
+def _print_validation_details(exc: ValidationException) -> None:
+    details = exc.details
+    if details:
+        print(json.dumps(details, indent=2, ensure_ascii=False), file=sys.stderr)
+    else:
+        print("(sem error.details)", file=sys.stderr)
 
 
 async def run(args: argparse.Namespace) -> int:
@@ -40,16 +64,20 @@ async def run(args: argparse.Namespace) -> int:
         "balance": float(args.saldo),
         "leverage": float(args.alavancagem),
         "name": args.nome,
+        "phone": args.telefone.strip(),
+        "accountType": args.tipo_conta.strip(),
         "keywords": list(args.keywords),
     }
-    if args.tipo_conta:
-        body["accountType"] = args.tipo_conta
 
     api = MetaApi(token)
     try:
         creds = await api.metatrader_account_generator_api.create_mt5_demo_account(
             body, profile_id=args.profile or None
         )
+    except ValidationException as e:
+        print(f"Erro da API (validação): {e}", file=sys.stderr)
+        _print_validation_details(e)
+        return 1
     except Exception as e:
         print(f"Erro da API: {e}", file=sys.stderr)
         return 1
@@ -77,6 +105,16 @@ def main() -> int:
         help="Nome exacto do servidor MT5 demo no broker",
     )
     p.add_argument("--email", required=True, help="Email do titular (pedido pela API)")
+    p.add_argument(
+        "--telefone",
+        required=True,
+        help="Telefone internacional obrigatório da API (ex: +351912345678)",
+    )
+    p.add_argument(
+        "--tipo-conta",
+        required=True,
+        help="accountType exacto como no MT5 / app do broker (obrigatório na API)",
+    )
     p.add_argument("--nome", default="Demo CLI", help="Nome do titular")
     p.add_argument("--saldo", type=float, default=100_000.0, help="Saldo inicial demo")
     p.add_argument(
@@ -96,16 +134,9 @@ def main() -> int:
         default="",
         help="ID do provisioning profile; vazio = 'default'",
     )
-    p.add_argument(
-        "--tipo-conta",
-        default="",
-        help="Opcional: accountType do broker (ver tipos no MT5 do broker)",
-    )
     args = p.parse_args()
     if not args.profile:
         args.profile = None
-    if not args.tipo_conta:
-        args.tipo_conta = None
 
     return asyncio.run(run(args))
 

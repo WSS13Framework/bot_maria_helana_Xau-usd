@@ -29,6 +29,8 @@ Ou usar `./servidor_atualizar.sh <branch>` na VPS.
 
 Variáveis de ambiente: `python3 set_env.py …` (ver `set_env.py --help`).
 
+Criar conta MT5 **demo** via API MetaAPI: `python3 criar_conta_demo_mt5.py --help` — exige `--telefone` (ex. `+351…`) e `--tipo-conta` (valor exacto do MT5 do broker), conforme a [documentação MetaAPI](https://metaapi.cloud/docs/provisioning/api/generateAccount/createMT5DemoAccount/).
+
 ## Setup (manual, equivalente ao make)
 ```bash
 cd /caminho/para/bot_maria_helana_Xau-usd
