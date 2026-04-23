@@ -1,0 +1,8 @@
+---
+description: Regra ambiente de desenvolvimento → clone na VPS
+alwaysApply: true
+---
+
+- Quando o utilizador ou a equipa **alterar o ambiente de referência** (código, Makefile, dependências, fluxos de teste, documentação de deploy), lembrar que isso deve **propagar-se ao clone na VPS** (`git pull` / `servidor_atualizar.sh` na pasta do servidor, ex. `~/maria-helena`).
+- O ficheiro **`.env` nunca** é commitado; na VPS as credenciais actualizam-se com **`set_env.py`** (ou processo seguro equivalente), alinhado ao ambiente de referência.
+- Se o utilizador mencionar “VPS”, “clone no servidor” ou “ambiente de produção/testes”, assumir esta regra de sincronização salvo indicação em contrário.

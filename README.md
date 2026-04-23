@@ -2,6 +2,19 @@
 
 Sistema de inteligência para trading de ouro XAU/USD.
 
+## Regra de negócio: ambiente → VPS (clone)
+
+**Sempre** que o ambiente de referência mudar — código no Git, `Makefile`, scripts de teste, `requirements.txt`, regras de deploy ou fluxo documentado — a alteração tem de **replicar-se no clone do projecto na VPS** (servidor de execução, ex. `~/maria-helena`), para o ambiente em produção/testes alinhado com o de desenvolvimento.
+
+| O quê muda | Onde actualizar na VPS |
+|------------|-------------------------|
+| Código, `Makefile`, README, testes | `git pull` na pasta do clone **ou** `./servidor_atualizar.sh <branch>` na mesma pasta |
+| Chaves e segredos (`.env`) | **Não** vão pelo Git. Na VPS: `python3 set_env.py set CHAVE valor` (ou processo seguro acordado), espelhando o que foi definido no ambiente de referência |
+
+Sem este passo, a VPS fica com **versão antiga** ou **credenciais desactualizadas** e os `make test-*` deixam de reflectir a realidade da equipa.
+
+---
+
 ## Assinaturas das APIs (o que contratar e onde)
 
 Passo a passo para **criar conta / plano** e obter chaves. Depois grave no `.env` com `python3 set_env.py set NOME valor` (não edite o `.env` com `nano` se preferir o script).
