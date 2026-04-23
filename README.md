@@ -9,7 +9,7 @@ Passo a passo para **criar conta / plano** e obter chaves. Depois grave no `.env
 | Ordem | Serviço | O que precisa no `.env` | Onde assinar / obter chaves |
 |:-----:|---------|-------------------------|-----------------------------|
 | — | **MetaAPI** | `METAAPI_TOKEN`, `METAAPI_ACCOUNT_ID` | [metaapi.cloud](https://app.metaapi.cloud/) → token na conta; ID da conta MT5 ligada |
-| A | **Trading Economics** | `TRADINGECONOMICS_CLIENT`, `TRADINGECONOMICS_SECRET` | [API pricing](https://tradingeconomics.com/api/pricing.aspx) → registo → painel **API** (par client + secret). O calendário REST usa `c=client:secret` no URL |
+| A | **Trading Economics** | `TRADINGECONOMICS_API_KEY` = `client:secret` **ou** `TRADINGECONOMICS_CLIENT` + `TRADINGECONOMICS_SECRET` | [API pricing](https://tradingeconomics.com/api/pricing.aspx) → painel **API**. Não grave texto de exemplo do README (ex. `COLA_AQUI…`) — use os valores hex/strings do site. Calendário REST: `c=client:secret` |
 | B | **Twelve Data** | `TWELVEDATA_API_KEY` | [Conta / API keys](https://twelvedata.com/account/api-keys) — há plano gratuito limitado; DXY/VIX estáveis costumam exigir [Prime](https://twelvedata.com/prime) ou [Business](https://twelvedata.com/pricing-business) conforme símbolos |
 | C | **Benzinga Pro** | `BENZINGA_API_KEY`, `BENZINGA_USERNAME` | [Benzinga Pro](https://pro.benzinga.com/pricing/) → API key + username do produto API |
 
@@ -24,7 +24,7 @@ Ou num só comando: `make test-apis`.
 **Problemas frequentes na VPS**
 
 - `make: *** No rule to make target 'test-apis'` — o clone está **desactualizado**. Na pasta do repo: `./servidor_atualizar.sh main` ou `make pull`, depois `make help` e confirme que aparece `test-apis`.
-- Trading Economics **401** — depois do `git pull`, o teste usa `c=client:secret` na query (não Basic Auth). Se continuar 401, o par Client/Secret ou o plano TE está incorrecto.
+- Trading Economics **401** — muitas vezes é **chave errada**: confirmou que não colou `COLA_AQUI…` do README? Use `python3 set_env.py set TRADINGECONOMICS_API_KEY 'CLIENT_REAL:SECRET_REAL'`. Depois do `git pull`, o pedido já usa `c=client:secret`. Se ainda 401, plano inactivo ou par incorrecto no painel TE.
 - Twelve Data **apikey incorrect** com HTTP 200 — a chave no `.env` está errada ou truncada; confira em [API keys](https://twelvedata.com/account/api-keys). Diagnóstico: o teste imprime comprimento e o primeiro carácter Unicode (BOM `U+FEFF` indica ficheiro/cópia estragada).
 - Trading Economics: `TE_DIAG=1 make test-te-calendar` imprime o URL final com `c` oculto (confirma que o pedido leva o parâmetro `c`).
 

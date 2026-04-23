@@ -4,8 +4,12 @@ Teste de ligação — Trading Economics (prioridade A: calendário macro).
 Documentação: https://docs.tradingeconomics.com/economic_calendar/
 Preços / chaves: https://tradingeconomics.com/api/pricing.aspx
 
-Credenciais no .env: TRADINGECONOMICS_CLIENT + TRADINGECONOMICS_SECRET.
-A API REST do calendário usa o parâmetro **c=client:secret** (não Basic Auth).
+Credenciais no .env (uma das opções):
+
+- **TRADINGECONOMICS_API_KEY** = `client:secret` numa só linha (igual a `te.login()` no pacote oficial), ou
+- **TRADINGECONOMICS_CLIENT** + **TRADINGECONOMICS_SECRET** (partes antes/depois do `:`).
+
+A API REST usa **c=client:secret** na query (não Basic Auth).
 Ver: https://docs.tradingeconomics.com/economic_calendar/country/
 """
 from __future__ import annotations
@@ -29,14 +33,52 @@ def _clean_cred(raw: str) -> str:
     return s.strip()
 
 
+def _is_doc_placeholder(user: str, secret: str) -> bool:
+    """Detecta texto copiado dos exemplos do README em vez das chaves reais."""
+    blob = f"{user}\n{secret}".upper()
+    return (
+        "COLA_AQUI" in blob
+        or "PARTE_ANTES" in blob
+        or "PARTE_DEPOIS" in blob
+        or "DOIS_PONTOS" in blob
+    )
+
+
+def _load_te_credentials(cfg: dict) -> tuple[str, str]:
+    """Client + secret a partir de API_KEY única (client:secret) ou par de variáveis."""
+    combined = _clean_cred(
+        cfg.get("TRADINGECONOMICS_API_KEY")
+        or cfg.get("TRADINGECONOMICS_LOGIN")
+        or ""
+    )
+    if ":" in combined:
+        left, right = combined.split(":", 1)
+        return _clean_cred(left), _clean_cred(right)
+    return (
+        _clean_cred(cfg.get("TRADINGECONOMICS_CLIENT") or ""),
+        _clean_cred(cfg.get("TRADINGECONOMICS_SECRET") or ""),
+    )
+
+
 def main() -> int:
     cfg = dotenv_values(ENV_PATH)
-    user = _clean_cred(cfg.get("TRADINGECONOMICS_CLIENT") or "")
-    secret = _clean_cred(cfg.get("TRADINGECONOMICS_SECRET") or "")
+    user, secret = _load_te_credentials(cfg)
     if not user or not secret:
         print(
-            "Defina TRADINGECONOMICS_CLIENT e TRADINGECONOMICS_SECRET no .env "
+            "Defina TRADINGECONOMICS_API_KEY=client:secret (recomendado) ou "
+            "TRADINGECONOMICS_CLIENT + TRADINGECONOMICS_SECRET no .env "
             "(painel Trading Economics → API).",
+            file=sys.stderr,
+        )
+        return 1
+    if _is_doc_placeholder(user, secret):
+        print(
+            "ERRO: As variáveis contêm texto de EXEMPLO do README (ex.: COLA_AQUI…), "
+            "não as chaves reais do painel Trading Economics.\n"
+            "No site TE copie o par Client e Secret e grave assim (valores reais):\n"
+            "  python3 set_env.py set TRADINGECONOMICS_API_KEY 'SEU_CLIENT:SEU_SECRET'\n"
+            "ou em duas linhas CLIENT / SECRET com os hex/strings do painel — sem usar "
+            "frases como COLA_AQUI.",
             file=sys.stderr,
         )
         return 1
@@ -66,9 +108,9 @@ def main() -> int:
         print(raw[:800])
         if r.status_code == 401:
             print(
-                "\nDica: (1) Atualize o código: git pull ou ./servidor_atualizar.sh main "
-                "(versões antigas usavam Basic Auth e recebem 401). "
-                "(2) Confirme Client + Secret no painel TE; o pedido usa c=client:secret na query.",
+                "\nDica: (1) git pull / servidor_atualizar.sh se o código for antigo. "
+                "(2) Confirme no painel TE o par real (não placeholders do README). "
+                "(3) Opcional: TRADINGECONOMICS_API_KEY='client:secret' numa variável só.",
                 file=sys.stderr,
             )
         return 1
