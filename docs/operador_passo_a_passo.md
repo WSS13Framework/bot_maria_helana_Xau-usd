@@ -121,3 +121,11 @@ make maria-pull BRANCH=nome-da-branch
 | `agents/README.md` | Detalhe dos agentes e *cron* |
 
 Se algo falhar, copia a **mensagem de erro completa** e o output de `make maria-doctor` para a equipa.
+
+---
+
+## H) Erros comuns
+
+- **`fatal: invalid refspec '/opt/...'`** — Colaram-se dois comandos na mesma linha (ex.: `maincd` em vez de `main` Enter `cd`). Correr `git pull --ff-only origin main` **sozinho** numa linha.
+- **`AVISO: sem requirements.txt`** no servidor — fazer `git pull` (o ficheiro tem de existir no Git) e `make install` ou `make setup` outra vez.
+- **ML / Ray** (opcional): `.venv/bin/pip install -r requirements-ml.txt` na raiz do clone.

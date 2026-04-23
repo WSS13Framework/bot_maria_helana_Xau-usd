@@ -1,0 +1,3 @@
+# Opcional — scripts de ML / backtest (ex.: ray_hmm_backtest.py)
+-r requirements.txt
+ray[default]>=2.9.0

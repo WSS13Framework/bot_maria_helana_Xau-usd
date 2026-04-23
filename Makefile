@@ -14,8 +14,13 @@ VENV ?= $(shell if [ -d venv ]; then echo venv; else echo .venv; fi)
 PIP := $(VENV)/bin/pip
 PY  := $(VENV)/bin/python3
 
-# Primeiro ficheiro que existir (ordem: leve → completo)
-REQFILE := $(firstword $(wildcard requirements.txt requirements-ml.txt))
+# Preferir sempre requirements.txt (leve); só requirements-ml.txt se for o único.
+REQFILE :=
+ifneq (,$(wildcard requirements.txt))
+REQFILE := requirements.txt
+else ifneq (,$(wildcard requirements-ml.txt))
+REQFILE := requirements-ml.txt
+endif
 
 .PHONY: help setup install env-init env-list test-metaapi test-benzinga test-te-calendar test-twelvedata test-apis test-apis-sem-te-calendario snapshot-mercado features-gaps regime-sugerido regime-handoff-read execucao-demo coletar-candles maria-doctor maria-pull maria-refresh-context maria-refresh-bars maria-demo-dry pull git-status check
 
@@ -27,7 +32,7 @@ help:
 	@echo "  Requisitos:       $(REQFILE) (ou vazio se não houver ficheiro)"
 	@echo ""
 	@echo "  make setup          Cria venv (se faltar) + pip install -r <requisitos>"
-	@echo "  make install        Só pip install"
+	@echo "  make install        Só pip install (-r requirements.txt; ML opcional: requirements-ml.txt)"
 	@echo "  make env-init       .env a partir de .env.example se não existir"
 	@echo "  make env-list       set_env.py list"
 	@echo "  make test-metaapi       test_conexao.py"
