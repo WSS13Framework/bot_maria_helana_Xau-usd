@@ -17,7 +17,7 @@ PY  := $(VENV)/bin/python3
 # Primeiro ficheiro que existir (ordem: leve → completo)
 REQFILE := $(firstword $(wildcard requirements.txt requirements-ml.txt))
 
-.PHONY: help setup install env-init env-list test-metaapi test-benzinga test-te-calendar test-twelvedata test-apis test-apis-sem-te-calendario snapshot-mercado pull git-status check
+.PHONY: help setup install env-init env-list test-metaapi test-benzinga test-te-calendar test-twelvedata test-apis test-apis-sem-te-calendario snapshot-mercado features-gaps regime-sugerido execucao-demo pull git-status check
 
 help:
 	@echo "=== Maria Helena — make (na raiz do repositório) ==="
@@ -36,6 +36,9 @@ help:
 	@echo "  make test-apis          MetaAPI + TE calendário + Twelve Data + Benzinga"
 	@echo "  make test-apis-sem-te-calendario   só MetaAPI + Twelve Data + Benzinga (plano TE sem API de calendário)"
 	@echo "  make snapshot-mercado   grava data/market_snapshot.json (Twelve Data + Benzinga + TE indicadores)"
+	@echo "  make features-gaps      features gap/imbalance sobre data/xauusd_m5.json"
+	@echo "  make regime-sugerido    agrega snapshot + features → data/regime_sugerido.json (regras)"
+	@echo "  make execucao-demo      agente ordem demo (MARIA_EXECUCAO_DEMO=1; DRY por defeito)"
 	@echo "  make pull           git pull --ff-only origin BRANCH=$(BRANCH)"
 	@echo "  make git-status     git status -sb"
 	@echo "  make check          import metaapi + dotenv + pandas"
@@ -85,6 +88,15 @@ test-apis-sem-te-calendario: test-metaapi test-twelvedata test-benzinga
 
 snapshot-mercado:
 	@$(PY) agents/snapshot_mercado.py
+
+features-gaps:
+	@$(PY) agents/features_gaps.py
+
+regime-sugerido:
+	@$(PY) agents/regime_sugerido.py
+
+execucao-demo:
+	@$(PY) agents/execucao_demo.py
 
 pull:
 	git fetch origin

@@ -116,8 +116,17 @@ Opcional: `TWELVEDATA_SNAPSHOT_SYMBOLS="EUR/USD,DX-Y.NYB"` (vários símbolos se
 
 (Ajustar caminho do `venv` e do clone.)
 
+## Código implementado (agentes)
+
+| Comando | Ficheiro | Descrição |
+|---------|----------|-----------|
+| `make features-gaps` | `agents/features_gaps.py` | Lê `data/xauusd_m5.json` (correr `coletar_candles.py` antes), grava `data/features_gaps_m5.json` com *gap* de sessão e *imbalance* 3 velas. Env: `GAP_MIN_ABS_PCT` (default `0.02`), `FEATURES_GAPS_TAIL` (default `80`). |
+| `make regime-sugerido` | `agents/regime_sugerido.py` | Lê `data/market_snapshot.json` + `data/features_gaps_m5.json` (opcional), grava `data/regime_sugerido.json` com cobertura de dados, tonalidade simples dos títulos Benzinga, micro (gap/imbalance) e `viés_consolidado` por regras. |
+| `make execucao-demo` | `agents/execucao_demo.py` | Exige `MARIA_EXECUCAO_DEMO=1`. Por defeito `MARIA_EXECUCAO_DRY=1` → liga MetaAPI, **não** envia ordem, regista linha em `data/execucao_demo_log.jsonl`. Conta com \"Live\" no nome **aborta** salvo `METAAPI_CONFIRMO_EXECUCAO_EM_CONTA_LIVE=1`. |
+
+Ordem recomendada na VPS: `coletar_candles.py` → `make features-gaps` → `make snapshot-mercado` → `make regime-sugerido` → (opcional) `make execucao-demo` com `.env` de **conta demo** e `DRY=1`.
+
 ## Próximo passo técnico sugerido
 
-1. **`agents/features_gaps.py`** — candles + regras de *gap* / etiquetas.  
-2. **Classificação de notícias / macro** — lê o snapshot, escreve `data/regime_sugerido.json` (regras).  
-3. **`agents/execucao_demo.py`** (nome sugerido) — só se `METAAPI_ACCOUNT_ID` for **demo** e *flag* `MARIA_EXECUCAO_DEMO=1` no `.env`; ordem com SL/TP fixos + log; **sem** live até decisão explícita da equipa.
+1. **Ligar `viés_consolidado` / `regime_sugerido` à execução demo** — condicionar `execucao_demo.py` a *flags* explícitas (ex.: só `cautelosamente_*` e lista branca de regimes) + `MARIA_EXECUCAO_DRY=0` em conta **demo**.  
+2. **Refinar regras** — mais símbolos no snapshot (DX, yields), curadoria de palavras‑chave, sessão do servidor no JSON de regime.
