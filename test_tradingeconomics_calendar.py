@@ -24,6 +24,7 @@ import requests
 from dotenv import dotenv_values
 
 from paths import ENV_PATH
+from te_env_markers import te_value_looks_like_placeholder
 
 
 def _clean_cred(raw: str) -> str:
@@ -33,30 +34,9 @@ def _clean_cred(raw: str) -> str:
     return s.strip()
 
 
-# Substrings que aparecem em exemplos de documentação — não são credenciais reais da TE.
-_TE_PLACEHOLDER_MARKERS = (
-    "COLA_AQUI",
-    "PARTE_ANTES",
-    "PARTE_DEPOIS",
-    "DOIS_PONTOS",
-    "CLIENT_REAL",
-    "SECRET_REAL",
-    "CLIENT_DO_SITE",  # texto de exemplo copiado da documentação
-    "SECRET_DO_SITE",
-    "SEU_CLIENT",
-    "SEU_SECRET",
-    "YOUR_CLIENT",
-    "YOUR_SECRET",
-    "REPLACE_ME",
-    "CHANGEME",
-    "EXAMPLE_KEY",
-)
-
-
 def _is_doc_placeholder(user: str, secret: str) -> bool:
-    """Detecta texto copiado de exemplos em vez das chaves reais do painel Trading Economics."""
-    blob = f"{user}\n{secret}".upper()
-    return any(m in blob for m in _TE_PLACEHOLDER_MARKERS)
+    """Detecta texto copiado de tutoriais (chat/README) em vez das chaves do painel TE."""
+    return te_value_looks_like_placeholder(user) or te_value_looks_like_placeholder(secret)
 
 
 def _load_te_credentials(cfg: dict) -> tuple[str, str]:
@@ -88,12 +68,12 @@ def main() -> int:
         return 1
     if _is_doc_placeholder(user, secret):
         print(
-            "ERRO: O .env contém texto de EXEMPLO (tutorial), não as chaves do painel Trading Economics.\n"
-            "No browser: tradingeconomics.com → login → secção API / developer → copie Client e Secret "
-            "(hex ou strings longas geradas pelo site).\n"
-            "No servidor: junte os dois com um dois-pontos no meio e grave com set_env.py na variável "
-            "TRADINGECONOMICS_API_KEY — use só o que copiou do site, sem palavras em inglês tipo "
-            "CLIENT_REAL ou SECRET_REAL.",
+            "ERRO: O .env contém texto de TUTORIAL (README/chat), não as chaves do site Trading Economics.\n"
+            "Não copie frases explicativas (PRIMEIRA_STRING…, CLIENT_DO_SITE…, etc.).\n"
+            "Abra tradingeconomics.com no browser → login → API / developer → selecione e copie "
+            "os dois valores que o painel mostra (Client e Secret).\n"
+            "No terminal SSH, cole esses valores dentro das aspas do set_env — só caracteres "
+            "que vieram do site, sem palavras em português/inglês de exemplo.",
             file=sys.stderr,
         )
         return 1
