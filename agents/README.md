@@ -2,6 +2,16 @@
 
 Teoria mensurável (**gaps**, **zonas de procura**, consistência operacional) para treino com **candles próprios**: ver **`docs/gaps_oportunidade_xau.md`** (sem *scraping* ilegal de terceiros; curadoria + features OHLC).
 
+## Onde corre o quê (evitar confusão)
+
+| Sítio | O que significa |
+|--------|------------------|
+| **Máquina do developer / sessão no Cursor** | É aqui que o código é editado e onde assistentes podem correr `make`, `python agents/...` e `git push` sobre **um clone** do repo. Caminhos como `~/mariaxauusd/...` ou a pasta que tens aberta no IDE **não são** a tua VPS, salvo seres tu a abrir o projeto *dentro* do servidor por SSH. |
+| **VPS (clone de referência para operar)** | É **no servidor** que normalmente vivem o `.env` real, o `venv`, o `cron` e as chamadas MetaAPI em produção/teste. Depois de alterações no GitHub: `git pull` na pasta do clone (ex. `~/maria-helena`) e repetir os mesmos comandos `make` que documentámos. |
+| **GitHub (`origin`)** | Fonte de verdade **entre** o PC e a VPS: o que foi *commitado* e *pushed*; ficheiros em `data/*.json` costumam estar no `.gitignore` — na VPS geram-se de novo com os scripts. |
+
+Resumo: **“o assistente fez push” ≠ “o servidor já está actualizado”** até fazeres `git pull` (ou o vosso script de deploy) **na VPS**.
+
 ## O que entra neste sprint
 
 | Fonte | Estado típico | Papel do agente (fase inicial) |
