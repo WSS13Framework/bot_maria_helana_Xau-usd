@@ -79,7 +79,7 @@ Com o **plano TE standard** (indicadores + mercado, **sem** calendário na API),
 
 ### Agentes autónomos (próxima fase de código)
 
-Procedimentos e âmbito do sprint: **`agents/README.md`**. Snapshot: `make snapshot-mercado` → `data/market_snapshot.json`.
+Procedimentos e âmbito do sprint: **`agents/README.md`**. Gaps/zonas para treino (OHLC): **`docs/gaps_oportunidade_xau.md`**. Snapshot: `make snapshot-mercado` → `data/market_snapshot.json`.
 
 Objectivo: **agentes** que consultam de forma autónoma **Benzinga** (C), **Twelve Data** (B) e **Trading Economics** (A — no vosso caso sobretudo **indicadores** enquanto o calendário API não estiver no plano), cruzam sinais e produzem **classificação** (numérica e semântica) sobre **o que move o ouro** no mercado (dólar, *rates*, risco, macro, notícias), para apoio **estatístico** e decisão da Maria Helena.
 

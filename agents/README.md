@@ -1,5 +1,7 @@
 # Agentes Maria Helena — procedimentos (sprint actual)
 
+Teoria mensurável (**gaps**, **zonas de procura**, consistência operacional) para treino com **candles próprios**: ver **`docs/gaps_oportunidade_xau.md`** (sem *scraping* ilegal de terceiros; curadoria + features OHLC).
+
 ## O que entra neste sprint
 
 | Fonte | Estado típico | Papel do agente (fase inicial) |
