@@ -47,6 +47,8 @@ case "$cmd" in
     if [[ ! -f .env ]]; then echo "AVISO: .env em falta — make env-init ou copiar de .env.example" >&2; else echo "OK: .env presente"; fi
     if [[ -x venv/bin/python3 ]]; then echo "OK: venv/bin/python3"; elif [[ -x .venv/bin/python3 ]]; then echo "OK: .venv/bin/python3"; else echo "AVISO: sem ./venv nem ./.venv — correr make setup" >&2; fi
     if make -C "$ROOT" -n snapshot-mercado >/dev/null 2>&1; then echo "OK: Makefile (alvo snapshot-mercado)"; else echo "AVISO: make não resolve snapshot-mercado" >&2; fi
+    if [[ -x .venv/bin/python3 ]]; then PY=(.venv/bin/python3); elif [[ -x venv/bin/python3 ]]; then PY=(venv/bin/python3); else PY=(python3); fi
+    if "${PY[0]}" -c "import dotenv, requests, pandas" >/dev/null 2>&1; then echo "OK: pacotes Python (dotenv, requests, pandas)"; else echo "AVISO: correr make install — faltam dependências no venv" >&2; fi
     ;;
   pull)
     BRANCH="${1:-main}"
