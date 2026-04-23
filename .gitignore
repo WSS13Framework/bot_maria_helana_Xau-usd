@@ -1,5 +1,7 @@
 .env
 *.json
+!schemas/regime_sugerido.schema.json
+candles_xauusd.csv
 venv/
 __pycache__/
 *.pyc

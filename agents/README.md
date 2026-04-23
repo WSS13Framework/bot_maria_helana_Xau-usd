@@ -12,6 +12,33 @@ Teoria mensurável (**gaps**, **zonas de procura**, consistência operacional) p
 
 Resumo: **“o assistente fez push” ≠ “o servidor já está actualizado”** até fazeres `git pull` (ou o vosso script de deploy) **na VPS**.
 
+## VPS Tubarão — MonetaBot-Pro + Maria em paralelo
+
+No servidor onde já existe **`/root/MonetaBot-Pro`**, o repo Maria pode correr noutro path (ex. `/opt/maria-helena-xau`) — **dois `.env`**, **dois `venv`**, **crons em horários diferentes** dos `coletar_*` / `treinar_*` do Moneta.
+
+| Documento | Conteúdo |
+|-----------|----------|
+| [docs/inventario_monetabot_tubarao.md](../docs/inventario_monetabot_tubarao.md) | Checklist de inventário + tabela equivalência Moneta ↔ Maria |
+| [docs/deploy_maria_tubarao_vps.md](../docs/deploy_maria_tubarao_vps.md) | `git clone`, `make setup`, testes, cuidados de colisão |
+| [docs/contrato_handoff_regime.md](../docs/contrato_handoff_regime.md) | Contrato `regime_sugerido.json` (humano vs leitor automático) |
+| [schemas/regime_sugerido.schema.json](../schemas/regime_sugerido.schema.json) | Schema JSON (v1) |
+
+**Validação do handoff (sem ordens):** `make regime-handoff-read` — [`agents/regime_handoff_reader.py`](regime_handoff_reader.py). Útil em *cron* após `regime-sugerido` para log agregado ou como modelo a copiar para o MonetaBot-Pro.
+
+### Cron Maria — exemplo *side-by-side* (não usar o mesmo minuto que o Moneta)
+
+Ajustar `cd` para o clone real do Maria na VPS. Espaçar **+5 min** relativamente aos colectores Moneta se ambos forem pesados.
+
+```cron
+# Maria — snapshot a cada 20 min (ex.: minutos 3,23,43)
+3-59/20 * * * * cd /opt/maria-helena-xau && ./.venv/bin/python3 agents/snapshot_mercado.py >> /var/log/maria_snapshot.log 2>&1
+
+# Maria — regime após candles locais (ex.: :08 de hora em hora; requer xauusd_m5.json actualizado)
+8 * * * * cd /opt/maria-helena-xau && ./.venv/bin/python3 agents/features_gaps.py && ./.venv/bin/python3 agents/regime_sugerido.py && ./.venv/bin/python3 agents/regime_handoff_reader.py >> /var/log/maria_regime.log 2>&1
+```
+
+O segundo job assume que `coletar_candles.py` já correu (outro *cron* ou manual). Se o Moneta já recolhe XAU, coordenar para **não** duplicar carga MetaAPI no mesmo instante.
+
 ## O que entra neste sprint
 
 | Fonte | Estado típico | Papel do agente (fase inicial) |
@@ -39,10 +66,10 @@ O ouro **não se move só com uma linha de preço**: reage a **camadas de inform
 *Cron exemplo — sábado 00:00 (hora do servidor):*
 
 ```cron
-0 0 * * 6 cd /root/maria-helena && ./venv/bin/python agents/snapshot_mercado.py >> /tmp/snapshot_semanal.log 2>&1
+0 0 * * 6 cd /opt/maria-helena-xau && ./.venv/bin/python3 agents/snapshot_mercado.py >> /tmp/snapshot_semanal.log 2>&1
 ```
 
-(Ajustar `venv`, caminho do clone e, se necessário, `TZ=` no crontab ou no script.)
+(Ajustar caminho do clone; na VPS Tubarão com MonetaBot ver secção **VPS Tubarão** acima para não colidir com outros *crons*.)
 
 ### Qualificação de notícias e “regras de negócio”
 
@@ -73,10 +100,11 @@ Cada agente com **uma responsabilidade** clara (fácil de testar e de desligar):
 | Papel (frase mental) | Função | Estado no repo |
 |----------------------|--------|----------------|
 | **Sou contexto** | `snapshot_mercado.py` — junta Twelve Data + Benzinga + TE (indicadores). | **Feito** |
-| **Sou preço / gaps** | Ler candles XAU, regras de *gap* / zona (`docs/gaps_oportunidade_xau.md`). | **A fazer** |
-| **Sou notícias** | Classificar manchetes (tema, impacto ouro) a partir do JSON. | **A fazer** |
-| **Sou macro** | Resumir indicadores / regime a partir do snapshot + TE. | **A fazer** |
-| **Sou execução (demo)** | Se *setup* + risco + janela baterem, enviar ordem **só em demo** + log imutável. | **A fazer** (último, depois de validar regras) |
+| **Sou preço / gaps** | `features_gaps.py` — candles XAU M5, *gap* sessão, *imbalance* 3 velas. | **Feito** (v1) |
+| **Sou notícias** | Tonalidade simples em `regime_sugerido.py` a partir do snapshot; classificação rica **A fazer**. | **Parcial** |
+| **Sou macro** | Cobertura TE + nota em `regime_sugerido.py`; resumo avançado **A fazer**. | **Parcial** |
+| **Sou execução (demo)** | `execucao_demo.py` — MetaAPI, DRY por defeito, *gates* conta. | **Feito** (demo) |
+| **Handoff / auditoria** | `regime_handoff_reader.py` — valida `regime_sugerido.json`. | **Feito** |
 
 **Treino vs operar:** primeiro **rotular** e **simular** (backtest / demo); só depois aumentar autonomia. “Ela posiciona-se e **mantém**” = política de **não mexer** na ordem após entrada, salvo regra escrita (ex.: *time stop*).
 
@@ -121,10 +149,10 @@ Opcional: `TWELVEDATA_SNAPSHOT_SYMBOLS="EUR/USD,DX-Y.NYB"` (vários símbolos se
 **Cron (exemplo a cada 15 min na VPS):**
 
 ```cron
-*/15 * * * * cd /root/maria-helena && ./venv/bin/python agents/snapshot_mercado.py >> /tmp/snapshot_mercado.log 2>&1
+*/15 * * * * cd /opt/maria-helena-xau && ./.venv/bin/python3 agents/snapshot_mercado.py >> /tmp/snapshot_mercado.log 2>&1
 ```
 
-(Ajustar caminho do `venv` e do clone.)
+(Ajustar caminho do clone; ver *side-by-side* Tubarão se coexistir com MonetaBot-Pro.)
 
 ## Código implementado (agentes)
 
@@ -132,6 +160,7 @@ Opcional: `TWELVEDATA_SNAPSHOT_SYMBOLS="EUR/USD,DX-Y.NYB"` (vários símbolos se
 |---------|----------|-----------|
 | `make features-gaps` | `agents/features_gaps.py` | Lê `data/xauusd_m5.json` (correr `coletar_candles.py` antes), grava `data/features_gaps_m5.json` com *gap* de sessão e *imbalance* 3 velas. Env: `GAP_MIN_ABS_PCT` (default `0.02`), `FEATURES_GAPS_TAIL` (default `80`). |
 | `make regime-sugerido` | `agents/regime_sugerido.py` | Lê `data/market_snapshot.json` + `data/features_gaps_m5.json` (opcional), grava `data/regime_sugerido.json` com cobertura de dados, tonalidade simples dos títulos Benzinga, micro (gap/imbalance) e `viés_consolidado` por regras. |
+| `make regime-handoff-read` | `agents/regime_handoff_reader.py` | Valida `data/regime_sugerido.json` (contrato v1). Env: `REGIME_HANDOFF_INPUT`. Saída JSON uma linha; código ≠ 0 se inválido. |
 | `make execucao-demo` | `agents/execucao_demo.py` | Exige `MARIA_EXECUCAO_DEMO=1`. Por defeito `MARIA_EXECUCAO_DRY=1` → liga MetaAPI, **não** envia ordem, regista linha em `data/execucao_demo_log.jsonl`. Conta com \"Live\" no nome **aborta** salvo `METAAPI_CONFIRMO_EXECUCAO_EM_CONTA_LIVE=1`. |
 
 Ordem recomendada na VPS: `coletar_candles.py` → `make features-gaps` → `make snapshot-mercado` → `make regime-sugerido` → (opcional) `make execucao-demo` com `.env` de **conta demo** e `DRY=1`.

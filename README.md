@@ -15,6 +15,8 @@ Sem este passo, a VPS fica com **versão antiga** ou **credenciais desactualizad
 
 **IDE vs GitHub vs VPS:** o trabalho no Cursor (ou outro PC) e os `git push` actualizam **só** o repositório remoto; **não** substituem `git pull` na pasta do clone **no servidor**. Tabela e notas mais longas: `agents/README.md` → secção *Onde corre o quê*.
 
+**VPS com MonetaBot-Pro (Tubarão) + Maria em paralelo:** inventário e deploy — [`docs/inventario_monetabot_tubarao.md`](docs/inventario_monetabot_tubarao.md), [`docs/deploy_maria_tubarao_vps.md`](docs/deploy_maria_tubarao_vps.md); contrato JSON — [`docs/contrato_handoff_regime.md`](docs/contrato_handoff_regime.md); *cron* e comandos — `agents/README.md` (secção *VPS Tubarão*).
+
 ---
 
 ## Assinaturas das APIs (o que contratar e onde)
@@ -81,7 +83,7 @@ Com o **plano TE standard** (indicadores + mercado, **sem** calendário na API),
 
 ### Agentes autónomos (próxima fase de código)
 
-Procedimentos e âmbito do sprint: **`agents/README.md`**. Gaps/zonas para treino (OHLC): **`docs/gaps_oportunidade_xau.md`**. Snapshot: `make snapshot-mercado` → `data/market_snapshot.json`. Gaps M5: `make features-gaps`. Regime (regras): `make regime-sugerido`. Demo exec: `make execucao-demo` (ver `agents/README.md`).
+Procedimentos e âmbito do sprint: **`agents/README.md`**. Gaps/zonas para treino (OHLC): **`docs/gaps_oportunidade_xau.md`**. Snapshot: `make snapshot-mercado` → `data/market_snapshot.json`. Gaps M5: `make features-gaps`. Regime (regras): `make regime-sugerido`. Validar handoff: `make regime-handoff-read`. Demo exec: `make execucao-demo` (ver `agents/README.md`).
 
 Objectivo: **agentes** que consultam de forma autónoma **Benzinga** (C), **Twelve Data** (B) e **Trading Economics** (A — no vosso caso sobretudo **indicadores** enquanto o calendário API não estiver no plano), cruzam sinais e produzem **classificação** (numérica e semântica) sobre **o que move o ouro** no mercado (dólar, *rates*, risco, macro, notícias), para apoio **estatístico** e decisão da Maria Helena.
 

@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://maria-helena.local/schemas/regime_sugerido.schema.json",
+  "title": "regime_sugerido",
+  "description": "Saída de agents/regime_sugerido.py — handoff Maria Helena v1",
+  "type": "object",
+  "required": [
+    "generated_at_utc",
+    "data_coverage",
+    "regime_sugerido",
+    "noticias",
+    "macro",
+    "viés_consolidado",
+    "razoes"
+  ],
+  "properties": {
+    "generated_at_utc": { "type": "string", "format": "date-time" },
+    "snapshot_generated_at_utc": { "type": ["string", "null"] },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "data_coverage": {
+      "type": "object",
+      "required": ["twelve_data", "benzinga_gold", "trading_economics_us"],
+      "properties": {
+        "twelve_data": { "type": "string" },
+        "benzinga_gold": { "type": "string" },
+        "trading_economics_us": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "regime_sugerido": {
+      "type": "string",
+      "enum": [
+        "contexto_muito_fino",
+        "contexto_fino",
+        "contexto_parcial",
+        "contexto_completo"
+      ]
+    },
+    "noticias": {
+      "type": "object",
+      "required": ["headline_count", "tonalidade", "scores"],
+      "properties": {
+        "headline_count": { "type": "integer", "minimum": 0 },
+        "tonalidade": {
+          "type": "string",
+          "enum": ["neutro", "supportivo_ouro", "pressao_ouro"]
+        },
+        "scores": {
+          "type": "object",
+          "required": ["bull_hits", "bear_hits"],
+          "properties": {
+            "bull_hits": { "type": "integer", "minimum": 0 },
+            "bear_hits": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "macro": {
+      "type": "object",
+      "required": ["indicadores_disponiveis", "nota"],
+      "properties": {
+        "indicadores_disponiveis": { "type": "boolean" },
+        "nota": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "micro_xau_m5": {
+      "type": ["object", "null"],
+      "properties": {
+        "gap_sessao_flag": { "type": "boolean" },
+        "gap_sessao_pct": { "type": "number" },
+        "imbalance_bull_3": { "type": "boolean" },
+        "imbalance_bear_3": { "type": "boolean" },
+        "time": {},
+        "close": { "type": "number" }
+      },
+      "additionalProperties": true
+    },
+    "viés_consolidado": { "type": "string", "minLength": 1 },
+    "razoes": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "nota": { "type": "string" }
+  },
+  "additionalProperties": true
+}

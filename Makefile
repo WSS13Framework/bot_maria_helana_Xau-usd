@@ -17,7 +17,7 @@ PY  := $(VENV)/bin/python3
 # Primeiro ficheiro que existir (ordem: leve → completo)
 REQFILE := $(firstword $(wildcard requirements.txt requirements-ml.txt))
 
-.PHONY: help setup install env-init env-list test-metaapi test-benzinga test-te-calendar test-twelvedata test-apis test-apis-sem-te-calendario snapshot-mercado features-gaps regime-sugerido execucao-demo pull git-status check
+.PHONY: help setup install env-init env-list test-metaapi test-benzinga test-te-calendar test-twelvedata test-apis test-apis-sem-te-calendario snapshot-mercado features-gaps regime-sugerido regime-handoff-read execucao-demo pull git-status check
 
 help:
 	@echo "=== Maria Helena — make (na raiz do repositório) ==="
@@ -38,6 +38,7 @@ help:
 	@echo "  make snapshot-mercado   grava data/market_snapshot.json (Twelve Data + Benzinga + TE indicadores)"
 	@echo "  make features-gaps      features gap/imbalance sobre data/xauusd_m5.json"
 	@echo "  make regime-sugerido    agrega snapshot + features → data/regime_sugerido.json (regras)"
+	@echo "  make regime-handoff-read valida regime_sugerido.json (contrato v1; sem ordens)"
 	@echo "  make execucao-demo      agente ordem demo (MARIA_EXECUCAO_DEMO=1; DRY por defeito)"
 	@echo "  make pull           git pull --ff-only origin BRANCH=$(BRANCH)"
 	@echo "  make git-status     git status -sb"
@@ -94,6 +95,9 @@ features-gaps:
 
 regime-sugerido:
 	@$(PY) agents/regime_sugerido.py
+
+regime-handoff-read:
+	@$(PY) agents/regime_handoff_reader.py
 
 execucao-demo:
 	@$(PY) agents/execucao_demo.py
