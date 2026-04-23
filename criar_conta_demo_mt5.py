@@ -42,6 +42,40 @@ from metaapi_cloud_sdk.clients.error_handler import ValidationException
 # Mesmo repo com ou sem paths.py (ex.: VPS /root/maria-helena)
 ENV_PATH = Path(__file__).resolve().parent / ".env"
 
+def _validar_cli(args: argparse.Namespace) -> int | None:
+    """Devolve código de saída se inválido; None se OK."""
+    email = args.email.strip().lower()
+    if "@gemail.com" in email:
+        print(
+            "Erro: o domínio do email parece typo de gmail.com — use @gmail.com (ou o domínio correcto).",
+            file=sys.stderr,
+        )
+        return 2
+
+    tipo = args.tipo_conta.strip()
+    if not tipo:
+        print("--tipo-conta não pode estar vazio.", file=sys.stderr)
+        return 2
+    norm = tipo.upper().replace(" ", "_").replace("-", "_")
+    if norm in (
+        "VALOR_EXACTO_MT5",
+        "VALOR_EXACTO",
+        "SEU_TIPO_AQUI",
+        "TIPO_CONTA",
+        "ACCOUNT_TYPE",
+    ) or ("VALOR" in norm and "EXACTO" in norm):
+        print(
+            "Erro: --tipo-conta não pode ser um placeholder da documentação.\n"
+            "  No MT5 Infinox: Ficheiro → Abrir uma conta → Demo → copie o nome exacto do tipo\n"
+            "  de conta da lista (cada broker usa strings diferentes).\n"
+            "  Já tem conta demo (ex. login 100112613)? Não use este script: no MetaAPI Cloud use\n"
+            "  Add account com login, servidor InfinoxLimited-MT5Demo e senhas do broker.",
+            file=sys.stderr,
+        )
+        return 2
+
+    return None
+
 
 def _print_validation_details(exc: ValidationException) -> None:
     details = exc.details
@@ -137,6 +171,10 @@ def main() -> int:
     args = p.parse_args()
     if not args.profile:
         args.profile = None
+
+    bad = _validar_cli(args)
+    if bad is not None:
+        return bad
 
     return asyncio.run(run(args))
 
