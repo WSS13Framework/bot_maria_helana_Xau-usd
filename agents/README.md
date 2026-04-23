@@ -13,6 +13,37 @@
 
 ---
 
+## Visão de produto — o que os agentes devem fazer (Maria Helena)
+
+O ouro **não se move só com uma linha de preço**: reage a **camadas de informação** (geopolítica, bancos, índices, inflação, actividade / PIB, *supply chain*, *financial chain*, cruzamento com dólar e *rates*). Os agentes existem para **captar**, **classificar** e **ligar** essas nuances ao XAU — não só texto “linear”.
+
+### Cadência sugerida
+
+| Momento | Objectivo |
+|---------|-------------|
+| **Semanal (ex.: sábado à meia-noite)** | *Batch*: juntar snapshots da semana (ou o último), histórico de preços MT5, e **actualizar** pesos / regras ou **dataset** para treino de modelos (quando existir ML). Definir **timezone** na VPS (ex. `TZ=America/Sao_Paulo`). |
+| **Intraday (opcional)** | `make snapshot-mercado` em intervalo curto só para manter `market_snapshot.json` fresco. |
+
+*Cron exemplo — sábado 00:00 (hora do servidor):*
+
+```cron
+0 0 * * 6 cd /root/maria-helena && ./venv/bin/python agents/snapshot_mercado.py >> /tmp/snapshot_semanal.log 2>&1
+```
+
+(Ajustar `venv`, caminho do clone e, se necessário, `TZ=` no crontab ou no script.)
+
+### Qualificação de notícias e “regras de negócio”
+
+Além de ingerir manchetes (Benzinga, etc.), a fase seguinte é **etiquetar** cada item: temas (geopolítica, bancos centrais, *earnings*, commodities…), **sentido provável para o ouro** (pressão compradora / vendedora / neutro), e **contexto de operação** (ex.: “alerta de volatilidade”, “não é sinal isolado de entrada”) — sempre como **sugestão**, com **validação humana** e política de **risco** antes de qualquer ordem real.
+
+Conceitos como *time to exit*, *buy/sell*, *trade winner* passam a **scores ou rótulos** + limiares definidos pela equipa — não a cliques automáticos no MT5 até estarem escritos e auditados.
+
+### “Treinar a inteligência”
+
+Significa: guardar **histórico** (`market_snapshot.json` + retornos do XAU via MetaAPI / candles) e, quando a equipa decidir, **recalcular** modelos ou pesos (offline na VPS ou noutro ambiente). O snapshot actual é o **primeiro tijolo** desse arquivo de treino.
+
+---
+
 ## Posso já criar os agentes?
 
 **Sim**, desde que o **âmbito da primeira entrega** seja modesto:
