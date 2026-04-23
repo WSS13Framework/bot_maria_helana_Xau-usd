@@ -35,6 +35,28 @@ O código dos agentes vive nesta pasta `agents/`; integração com ordens MT5 fi
 
 ---
 
+## Snapshot de mercado (implementado)
+
+Script **`agents/snapshot_mercado.py`** — lê o `.env`, chama **Twelve Data** (*quote* por símbolo), **Benzinga** (notícias `gold`, até 8 manchetes) e **Trading Economics** (lista de **indicadores** EUA — pode devolver 403 conforme plano). Grava **`data/market_snapshot.json`** com carimbo UTC. **Não envia ordens.**
+
+Na raiz do repositório:
+
+```bash
+make snapshot-mercado
+# ou: python3 agents/snapshot_mercado.py
+# ou: python3 -m agents.snapshot_mercado
+```
+
+Opcional: `TWELVEDATA_SNAPSHOT_SYMBOLS="EUR/USD,DX-Y.NYB"` (vários símbolos separados por vírgula, máx. 8).
+
+**Cron (exemplo a cada 15 min na VPS):**
+
+```cron
+*/15 * * * * cd /root/maria-helena && ./venv/bin/python agents/snapshot_mercado.py >> /tmp/snapshot_mercado.log 2>&1
+```
+
+(Ajustar caminho do `venv` e do clone.)
+
 ## Próximo passo técnico sugerido
 
-Implementar `agents/ingest_twelvedata.py` (ou um único `agents/run_pipeline.py`) que reutiliza a mesma lógica de `test_twelvedata_quote.py` mas grava JSON em `data/` — prova de conceito sem novo *vendor* SDK até ser necessário.
+Camada seguinte: ler `market_snapshot.json` + candles MetaAPI e calcular **regime** / scores (regras ou ML), sem executar ordens até validação.
