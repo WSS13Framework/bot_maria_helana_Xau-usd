@@ -42,6 +42,14 @@ Conceitos como *time to exit*, *buy/sell*, *trade winner* passam a **scores ou r
 
 Significa: guardar **histórico** (`market_snapshot.json` + retornos do XAU via MetaAPI / candles) e, quando a equipa decidir, **recalcular** modelos ou pesos (offline na VPS ou noutro ambiente). O snapshot actual é o **primeiro tijolo** desse arquivo de treino.
 
+### Disciplina operacional — *opening* e execução (regra de negócio humana)
+
+A estratégia pode ser **simples**, sobretudo em **setup de abertura** (*opening*): o operador pode actuar **uma vez por semana** ou **em cada abertura relevante** (sessão). Há aberturas distintas — **Ásia**, **Londres**, **Nova Iorque** — e o relógio no MT5 segue o **servidor do broker** (ex.: Hantec); convém fixar no código/documentação **qual janela** (ex. “às 03:00 no servidor do broker”) corresponde ao vosso *setup*, para não misturar fusos.
+
+**Regra de ouro (execução):** depois de abrir a ordem com plano claro (*take* / *stop* definidos na entrada), **não se deve ir alterando a ordem por impulso**. Se se modifica sem critério novo, muitas vezes é sinal de **falta de convicção no plano** — o problema passa a ser **aplicação da estratégia**, não a estratégia em si. Aplicar bem exige **disciplina** e, no manual, **estar presente** no gráfico no momento da execução (seja uma vez por dia ou só nas entradas escolhidas).
+
+**Para a Maria Helena (automação):** quando houver envio de ordens, o desenho deve permitir **política “imutável após entrada”** (SL/TP só pelo plano pré-definido, sem *tweaks* emocionais), **janelas por sessão**, e **registo auditável**. Fases iniciais: só **alerta** ou **demo**, até a equipa validar números e risco.
+
 ---
 
 ## Posso já criar os agentes?
