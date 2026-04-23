@@ -15,7 +15,7 @@ Sem este passo, a VPS fica com **versão antiga** ou **credenciais desactualizad
 
 **IDE vs GitHub vs VPS:** o trabalho no Cursor (ou outro PC) e os `git push` actualizam **só** o repositório remoto; **não** substituem `git pull` na pasta do clone **no servidor**. Tabela e notas mais longas: `agents/README.md` → secção *Onde corre o quê*.
 
-**VPS com MonetaBot-Pro (Tubarão) + Maria em paralelo:** inventário e deploy — [`docs/inventario_monetabot_tubarao.md`](docs/inventario_monetabot_tubarao.md), [`docs/deploy_maria_tubarao_vps.md`](docs/deploy_maria_tubarao_vps.md); contrato JSON — [`docs/contrato_handoff_regime.md`](docs/contrato_handoff_regime.md); *cron* e comandos — `agents/README.md` (secção *VPS Tubarão*). **Sem `nano` no servidor:** [`scripts/maria_exchange.sh`](scripts/maria_exchange.sh) (`doctor`, `pull`, `refresh-context`, `env-set …`).
+**VPS com MonetaBot-Pro (Tubarão) + Maria em paralelo:** inventário e deploy — [`docs/inventario_monetabot_tubarao.md`](docs/inventario_monetabot_tubarao.md), [`docs/deploy_maria_tubarao_vps.md`](docs/deploy_maria_tubarao_vps.md); contrato JSON — [`docs/contrato_handoff_regime.md`](docs/contrato_handoff_regime.md); *cron* e comandos — `agents/README.md` (secção *VPS Tubarão*). **Sem `nano` no servidor:** [`scripts/maria_exchange.sh`](scripts/maria_exchange.sh). **Passo a passo para operadores:** [`docs/operador_passo_a_passo.md`](docs/operador_passo_a_passo.md).
 
 ---
 

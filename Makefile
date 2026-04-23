@@ -21,6 +21,7 @@ REQFILE := $(firstword $(wildcard requirements.txt requirements-ml.txt))
 
 help:
 	@echo "=== Maria Helena — make (na raiz do repositório) ==="
+	@echo "  Guia operador (passo a passo): docs/operador_passo_a_passo.md"
 	@echo ""
 	@echo "  VENV detectado:    $(VENV)  (forçar: make X VENV=venv)"
 	@echo "  Requisitos:       $(REQFILE) (ou vazio se não houver ficheiro)"

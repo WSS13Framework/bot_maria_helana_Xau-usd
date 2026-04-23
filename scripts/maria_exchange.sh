@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
-# Trocas rápidas na VPS ou no PC — sem nano, menos erro humano (cd / venv).
-# Uso (sempre na raiz do repo ou com path absoluto ao script):
-#   chmod +x scripts/maria_exchange.sh
-#   ./scripts/maria_exchange.sh doctor
-#   ./scripts/maria_exchange.sh pull
-#   ./scripts/maria_exchange.sh refresh-context
-#   ./scripts/maria_exchange.sh env-set TWELVEDATA_API_KEY '...'
+# Trocas rápidas — sem nano. Guia completo: docs/operador_passo_a_passo.md
+#
+# Resumo (na PASTA RAIZ do clone):
+#   chmod +x scripts/maria_exchange.sh    # primeira vez
+#   make maria-doctor                     # está tudo OK?
+#   make maria-pull                       # actualizar código (main)
+#   make maria-refresh-context            # snapshot + regime + validação
+#   make coletar-candles && make maria-refresh-bars   # com velas M5
+#   make maria-demo-dry                   # demo MetaAPI, sem ordem (DRY)
+#   ./scripts/maria_exchange.sh env-set CHAVE 'valor'
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

@@ -25,7 +25,7 @@ No servidor onde já existe **`/root/MonetaBot-Pro`**, o repo Maria pode correr 
 
 **Validação do handoff (sem ordens):** `make regime-handoff-read` — [`agents/regime_handoff_reader.py`](regime_handoff_reader.py). Útil em *cron* após `regime-sugerido` para log agregado ou como modelo a copiar para o MonetaBot-Pro.
 
-**Operação sem `nano`:** na raiz do clone, [`scripts/maria_exchange.sh`](../scripts/maria_exchange.sh) — `doctor`, `pull`, `refresh-context`, `candles`, `demo-dry`, `env-set CHAVE valor`, etc. Atalhos: `make maria-doctor`, `make maria-pull`, `make maria-refresh-context`, `make maria-refresh-bars`, `make maria-demo-dry`, `make coletar-candles`. Detalhe: [deploy_maria_tubarao_vps.md](../docs/deploy_maria_tubarao_vps.md).
+**Operação sem `nano`:** guia linear — [`docs/operador_passo_a_passo.md`](../docs/operador_passo_a_passo.md). Script [`scripts/maria_exchange.sh`](../scripts/maria_exchange.sh); `make maria-*`, `make coletar-candles`. Deploy: [`docs/deploy_maria_tubarao_vps.md`](../docs/deploy_maria_tubarao_vps.md).
 
 ### Cron Maria — exemplo *side-by-side* (não usar o mesmo minuto que o Moneta)
 
