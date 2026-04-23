@@ -39,6 +39,7 @@ help:
 	@echo "  make features-gaps      features gap/imbalance sobre data/xauusd_m5.json"
 	@echo "  make regime-sugerido    agrega snapshot + features → data/regime_sugerido.json (regras)"
 	@echo "  make regime-handoff-read valida regime_sugerido.json (contrato v1; sem ordens)"
+	@echo "  scripts/maria_exchange.sh doctor|pull|refresh-context|env-set …  (VPS; sem nano)"
 	@echo "  make execucao-demo      agente ordem demo (MARIA_EXECUCAO_DEMO=1; DRY por defeito)"
 	@echo "  make pull           git pull --ff-only origin BRANCH=$(BRANCH)"
 	@echo "  make git-status     git status -sb"

@@ -30,12 +30,28 @@ make env-init
 Editar credenciais **só neste clone**:
 
 ```bash
-./.venv/bin/python3 set_env.py set TWELVEDATA_API_KEY "…"
-./.venv/bin/python3 set_env.py set BENZINGA_API_KEY "…"
+chmod +x scripts/maria_exchange.sh
+./scripts/maria_exchange.sh env-set TWELVEDATA_API_KEY "…"
+./scripts/maria_exchange.sh env-set BENZINGA_API_KEY "…"
 # Trading Economics — conforme .env.example (client:secret ou CLIENT+SECRET)
-./.venv/bin/python3 set_env.py set METAAPI_TOKEN "…"
-./.venv/bin/python3 set_env.py set METAAPI_ACCOUNT_ID "…"
+./scripts/maria_exchange.sh env-set METAAPI_TOKEN "…"
+./scripts/maria_exchange.sh env-set METAAPI_ACCOUNT_ID "…"
 ```
+
+(O script [`scripts/maria_exchange.sh`](../scripts/maria_exchange.sh) chama `set_env.py` — **sem** `nano` no `.env`, menos erro de cópia.)
+
+### Trocas rápidas (operador)
+
+| Comando | Efeito |
+|---------|--------|
+| `./scripts/maria_exchange.sh doctor` | Confirma `.env`, `venv` / `.venv`, Makefile. |
+| `./scripts/maria_exchange.sh pull` | Actualiza código (`servidor_atualizar.sh`, branch `main`). |
+| `./scripts/maria_exchange.sh pull minha-branch` | *Pull* noutra branch remota. |
+| `./scripts/maria_exchange.sh install` | `make install` |
+| `./scripts/maria_exchange.sh test-apis` | Testes MetaAPI + Twelve + Benzinga (sem calendário TE). |
+| `./scripts/maria_exchange.sh refresh-context` | Snapshot → regime → validação handoff (sem exigir candles). |
+| `./scripts/maria_exchange.sh refresh-bars` | Features M5 + *refresh-context* (precisa `data/xauusd_m5.json`). |
+| `./scripts/maria_exchange.sh env-list` | Lista chaves via `set_env.py`. |
 
 ---
 
