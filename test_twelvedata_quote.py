@@ -19,7 +19,7 @@ from paths import ENV_PATH
 
 
 def _clean_api_key(raw: str) -> str:
-    k = (raw or "").strip()
+    k = (raw or "").strip().lstrip("\ufeff")
     if len(k) >= 2 and k[0] == k[-1] and k[0] in "'\"":
         k = k[1:-1].strip()
     return k.strip()
@@ -27,7 +27,9 @@ def _clean_api_key(raw: str) -> str:
 
 def main() -> int:
     cfg = dotenv_values(ENV_PATH)
-    key = _clean_api_key(cfg.get("TWELVEDATA_API_KEY") or "")
+    key = _clean_api_key(
+        cfg.get("TWELVEDATA_API_KEY") or cfg.get("TWELVEDATA_KEY") or ""
+    )
     if not key:
         print("Defina TWELVEDATA_API_KEY no .env.", file=sys.stderr)
         return 1
@@ -61,6 +63,13 @@ def main() -> int:
             "Chave no dashboard: https://twelvedata.com/account/api-keys"
         )
         print(hint, file=sys.stderr)
+        if key:
+            u0 = ord(key[0])
+            print(
+                f"   Diagnóstico: apikey com {len(key)} caracteres; "
+                f"primeiro código U+{u0:04X} (FEFF=BOM).",
+                file=sys.stderr,
+            )
         return 1
 
     if not isinstance(data, dict):

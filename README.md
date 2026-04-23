@@ -21,6 +21,13 @@ make test-metaapi && make test-te-calendar && make test-twelvedata && make test-
 
 Ou num só comando: `make test-apis`.
 
+**Problemas frequentes na VPS**
+
+- `make: *** No rule to make target 'test-apis'` — o clone está **desactualizado**. Na pasta do repo: `./servidor_atualizar.sh main` ou `make pull`, depois `make help` e confirme que aparece `test-apis`.
+- Trading Economics **401** — depois do `git pull`, o teste usa `c=client:secret` na query (não Basic Auth). Se continuar 401, o par Client/Secret ou o plano TE está incorrecto.
+- Twelve Data **apikey incorrect** com HTTP 200 — a chave no `.env` está errada ou truncada; confira em [API keys](https://twelvedata.com/account/api-keys). Diagnóstico: o teste imprime comprimento e o primeiro carácter Unicode (BOM `U+FEFF` indica ficheiro/cópia estragada).
+- Trading Economics: `TE_DIAG=1 make test-te-calendar` imprime o URL final com `c` oculto (confirma que o pedido leva o parâmetro `c`).
+
 ## Ordem das fontes macro e mercado (assinatura / prioridade)
 
 Ordem **exacta** para monitorização e features (surpresas de calendário antes de cross‑market estável; notícias por cima como camada adicional):

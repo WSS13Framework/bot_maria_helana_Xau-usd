@@ -11,6 +11,8 @@ Ver: https://docs.tradingeconomics.com/economic_calendar/country/
 from __future__ import annotations
 
 import json
+import os
+import re
 import sys
 from urllib.parse import quote
 
@@ -20,10 +22,17 @@ from dotenv import dotenv_values
 from paths import ENV_PATH
 
 
+def _clean_cred(raw: str) -> str:
+    s = (raw or "").strip().lstrip("\ufeff")
+    if len(s) >= 2 and s[0] == s[-1] and s[0] in "'\"":
+        s = s[1:-1].strip()
+    return s.strip()
+
+
 def main() -> int:
     cfg = dotenv_values(ENV_PATH)
-    user = (cfg.get("TRADINGECONOMICS_CLIENT") or "").strip()
-    secret = (cfg.get("TRADINGECONOMICS_SECRET") or "").strip()
+    user = _clean_cred(cfg.get("TRADINGECONOMICS_CLIENT") or "")
+    secret = _clean_cred(cfg.get("TRADINGECONOMICS_SECRET") or "")
     if not user or not secret:
         print(
             "Defina TRADINGECONOMICS_CLIENT e TRADINGECONOMICS_SECRET no .env "
@@ -46,13 +55,20 @@ def main() -> int:
         print(f"Erro de rede: {e}", file=sys.stderr)
         return 1
 
+    if os.environ.get("TE_DIAG"):
+        prep = requests.Request("GET", url, params={"c": c_param, "f": "json"}).prepare()
+        redacted = re.sub(r"([&?])c=[^&]*", r"\1c=***", prep.url)
+        print(f"TE_DIAG URL (credencial oculta): {redacted}", file=sys.stderr)
+
     print(f"Status: {r.status_code}")
     raw = (r.text or "").strip()
     if r.status_code != 200:
         print(raw[:800])
         if r.status_code == 401:
             print(
-                "\nDica: confirme no painel TE o **Client** e **Secret**; o script envia c=client:secret.",
+                "\nDica: (1) Atualize o código: git pull ou ./servidor_atualizar.sh main "
+                "(versões antigas usavam Basic Auth e recebem 401). "
+                "(2) Confirme Client + Secret no painel TE; o pedido usa c=client:secret na query.",
                 file=sys.stderr,
             )
         return 1
