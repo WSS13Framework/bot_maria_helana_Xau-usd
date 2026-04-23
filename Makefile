@@ -17,7 +17,7 @@ PY  := $(VENV)/bin/python3
 # Primeiro ficheiro que existir (ordem: leve → completo)
 REQFILE := $(firstword $(wildcard requirements.txt requirements-ml.txt))
 
-.PHONY: help setup install env-init env-list test-metaapi test-benzinga pull git-status check
+.PHONY: help setup install env-init env-list test-metaapi test-benzinga test-te-calendar test-twelvedata pull git-status check
 
 help:
 	@echo "=== Maria Helena — make (na raiz do repositório) ==="
@@ -29,8 +29,10 @@ help:
 	@echo "  make install        Só pip install"
 	@echo "  make env-init       .env a partir de .env.example se não existir"
 	@echo "  make env-list       set_env.py list"
-	@echo "  make test-metaapi   test_conexao.py"
-	@echo "  make test-benzinga  test_benzinga.py"
+	@echo "  make test-metaapi       test_conexao.py"
+	@echo "  make test-te-calendar   Trading Economics (calendário)"
+	@echo "  make test-twelvedata    Twelve Data (cotação)"
+	@echo "  make test-benzinga      Benzinga (notícias)"
 	@echo "  make pull           git pull --ff-only origin BRANCH=$(BRANCH)"
 	@echo "  make git-status     git status -sb"
 	@echo "  make check          import metaapi + dotenv + pandas"
@@ -64,6 +66,12 @@ test-metaapi:
 
 test-benzinga:
 	@$(PY) test_benzinga.py
+
+test-te-calendar:
+	@$(PY) test_tradingeconomics_calendar.py
+
+test-twelvedata:
+	@$(PY) test_twelvedata_quote.py
 
 pull:
 	git fetch origin

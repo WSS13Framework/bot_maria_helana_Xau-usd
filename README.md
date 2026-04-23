@@ -2,12 +2,32 @@
 
 Sistema de inteligência para trading de ouro XAU/USD.
 
+## Ordem das fontes macro e mercado (assinatura / prioridade)
+
+Ordem **exacta** para monitorização e features (surpresas de calendário antes de cross‑market estável; notícias por cima como camada adicional):
+
+| Prioridade | Fonte | Objectivo | Preços / docs |
+|:-----------:|--------|-----------|----------------|
+| **A (1.º)** | **Trading Economics** | Calendário: CPI, NFP, FOMC, *actual* vs *forecast* (surpresa) | [Preços API](https://tradingeconomics.com/api/pricing.aspx) · [Calendário API](https://tradingeconomics.com/api/calendar.aspx) |
+| **B (2.º)** | **Twelve Data Pro** | DXY, VIX, rates, cross‑market com API estável | [Prime (individual)](https://twelvedata.com/prime) · [Business](https://twelvedata.com/pricing-business) |
+| **C (3.º)** | **Benzinga Pro** | Headlines / fluxo de notícias (já em uso) | [Benzinga Pro pricing](https://pro.benzinga.com/pricing/) |
+
+Testes de ligação (`.env` com chaves correspondentes):
+
+```bash
+make test-te-calendar    # Trading Economics
+make test-twelvedata     # Twelve Data (opcional: TWELVEDATA_TEST_SYMBOL=DX-Y.NYB python3 …)
+make test-benzinga
+```
+
 ## Contexto no código (hoje)
 
 | Camada | Ferramenta | Scripts |
 |--------|------------|---------|
 | Dados MT5 / XAUUSD | MetaAPI (candles, símbolos) | `coletar_candles.py`, `listar_simbolos.py`, `test_conexao.py` |
-| Notícias / ouro | Benzinga API | `test_benzinga.py` |
+| Macro A | Trading Economics | `test_tradingeconomics_calendar.py` |
+| Mercado B | Twelve Data | `test_twelvedata_quote.py` |
+| Notícias C | Benzinga API | `test_benzinga.py` |
 | Outro mercado (teste) | Binance Futures (USDT) | `executor_direto.py` — não é XAUUSD no broker MT5 |
 
 O README mencionava PyTorch; **ainda não há modelo ML no repositório** — só integrações de dados e testes de ligação.
