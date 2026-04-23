@@ -13,6 +13,8 @@ Sistema de inteligência para trading de ouro XAU/USD.
 
 Sem este passo, a VPS fica com **versão antiga** ou **credenciais desactualizadas** e os `make test-*` deixam de reflectir a realidade da equipa.
 
+**IDE vs GitHub vs VPS:** o trabalho no Cursor (ou outro PC) e os `git push` actualizam **só** o repositório remoto; **não** substituem `git pull` na pasta do clone **no servidor**. Tabela e notas mais longas: `agents/README.md` → secção *Onde corre o quê*.
+
 ---
 
 ## Assinaturas das APIs (o que contratar e onde)
