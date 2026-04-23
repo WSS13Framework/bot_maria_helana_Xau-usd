@@ -79,6 +79,8 @@ Com o **plano TE standard** (indicadores + mercado, **sem** calendário na API),
 
 ### Agentes autónomos (próxima fase de código)
 
+Procedimentos e âmbito do sprint: **`agents/README.md`**.
+
 Objectivo: **agentes** que consultam de forma autónoma **Benzinga** (C), **Twelve Data** (B) e **Trading Economics** (A — no vosso caso sobretudo **indicadores** enquanto o calendário API não estiver no plano), cruzam sinais e produzem **classificação** (numérica e semântica) sobre **o que move o ouro** no mercado (dólar, *rates*, risco, macro, notícias), para apoio **estatístico** e decisão da Maria Helena.
 
 Pipeline alvo (a implementar): ingestão por fonte → normalização → *features* (ex.: embeddings ou etiquetas para texto Benzinga; *z-scores* ou surpresas onde houver série) → agregação por janela temporal → saída interpretável (scores, regimes, alertas). A ordem de **prioridade de negócio** continua **A → B → C**; a ordem de **assinatura** segue a mesma.
