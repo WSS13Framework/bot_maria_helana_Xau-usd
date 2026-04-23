@@ -18,11 +18,13 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
+from pathlib import Path
 
 from dotenv import dotenv_values
 from metaapi_cloud_sdk import MetaApi
 
-from paths import ENV_PATH
+# Mesmo repo com ou sem paths.py (ex.: VPS /root/maria-helena)
+ENV_PATH = Path(__file__).resolve().parent / ".env"
 
 
 async def run(args: argparse.Namespace) -> int:
