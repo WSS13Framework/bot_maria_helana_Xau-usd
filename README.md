@@ -29,6 +29,21 @@ Ou num só comando: `make test-apis`.
 - Twelve Data **apikey incorrect** com HTTP 200 — a chave no `.env` está errada ou truncada; confira em [API keys](https://twelvedata.com/account/api-keys). Diagnóstico: o teste imprime comprimento e o primeiro carácter Unicode (BOM `U+FEFF` indica ficheiro/cópia estragada).
 - Trading Economics: `TE_DIAG=1 make test-te-calendar` imprime o URL final com `c` oculto (confirma que o pedido leva o parâmetro `c`).
 
+## Estratégia com o contrato actual (extrair o máximo)
+
+Com o **plano TE standard** (indicadores + mercado, **sem** calendário na API), a prioridade A original (CPI/NFP via **calendário** TE) **não está disponível por API**. A estratégia passa a usar **só o que está pago e activo**:
+
+| Fonte | O que extrair para XAU/USD |
+|--------|----------------------------|
+| **MetaAPI** | Candles e microestrutura do **XAUUSD** no MT5 (volatilidade, sessões, spreads); base para sinais e execução. |
+| **Trading Economics** | **Indicadores** e séries macro (inflação, emprego, PIB, confiança) por país — úteis para **regime** e contexto, com **atraso** face a um calendário ao vivo. Respeitar o teto (**~500 pedidos/mês**): cache, agregação diária, pedidos só quando necessário. |
+| **Twelve Data** | **Cotações** DXY, VIX, yields, pares — stress do dólar e risk-on/off que empurram o ouro. |
+| **Benzinga** | **Headlines** e fluxo — event risk (Fed, guerra, bancos) quando o calendário formal não vem da TE. |
+
+**Calendário “surpresa” (actual vs forecast):** sem API de calendário TE, opções são: subir plano mais tarde, usar **notícias + NLP** (Benzinga) como proxy de evento, ou uma fonte de calendário **externa** com licença compatível. Até lá, documentar no código que a camada A por TE é **indicadores + contexto**, não releases ao segundo.
+
+---
+
 ## Ordem das fontes macro e mercado (assinatura / prioridade)
 
 Ordem **exacta** para monitorização e features (surpresas de calendário antes de cross‑market estável; notícias por cima como camada adicional):
