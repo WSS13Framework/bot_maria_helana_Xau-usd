@@ -4,12 +4,16 @@ Teste de ligação — Trading Economics (prioridade A: calendário macro).
 Documentação: https://docs.tradingeconomics.com/economic_calendar/
 Preços / chaves: https://tradingeconomics.com/api/pricing.aspx
 
-Credenciais no .env: TRADINGECONOMICS_CLIENT + TRADINGECONOMICS_SECRET (Basic Auth na API REST).
+Credenciais no .env: TRADINGECONOMICS_CLIENT + TRADINGECONOMICS_SECRET.
+A API REST do calendário usa o parâmetro **c=client:secret** (não Basic Auth).
+Ver: https://docs.tradingeconomics.com/economic_calendar/country/
 """
 from __future__ import annotations
 
 import json
 import sys
+from urllib.parse import quote
+
 import requests
 from dotenv import dotenv_values
 
@@ -28,11 +32,16 @@ def main() -> int:
         )
         return 1
 
-    # Próximos eventos EUA (CPI/NFP/FOMC vêm neste feed; filtrar por categoria no pipeline)
+    # TE: autenticação via query `c=client:secret` (documentação oficial)
     country = "united states"
-    url = f"https://api.tradingeconomics.com/calendar/country/{country}"
+    url = f"https://api.tradingeconomics.com/calendar/country/{quote(country, safe='')}"
+    c_param = f"{user}:{secret}"
     try:
-        r = requests.get(url, auth=(user, secret), timeout=45)
+        r = requests.get(
+            url,
+            params={"c": c_param, "f": "json"},
+            timeout=45,
+        )
     except requests.RequestException as e:
         print(f"Erro de rede: {e}", file=sys.stderr)
         return 1
@@ -41,6 +50,11 @@ def main() -> int:
     raw = (r.text or "").strip()
     if r.status_code != 200:
         print(raw[:800])
+        if r.status_code == 401:
+            print(
+                "\nDica: confirme no painel TE o **Client** e **Secret**; o script envia c=client:secret.",
+                file=sys.stderr,
+            )
         return 1
     if not raw:
         print("Resposta vazia — verifique credenciais e plano.")

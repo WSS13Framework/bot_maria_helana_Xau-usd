@@ -18,9 +18,16 @@ from dotenv import dotenv_values
 from paths import ENV_PATH
 
 
+def _clean_api_key(raw: str) -> str:
+    k = (raw or "").strip()
+    if len(k) >= 2 and k[0] == k[-1] and k[0] in "'\"":
+        k = k[1:-1].strip()
+    return k.strip()
+
+
 def main() -> int:
     cfg = dotenv_values(ENV_PATH)
-    key = (cfg.get("TWELVEDATA_API_KEY") or "").strip()
+    key = _clean_api_key(cfg.get("TWELVEDATA_API_KEY") or "")
     if not key:
         print("Defina TWELVEDATA_API_KEY no .env.", file=sys.stderr)
         return 1
@@ -49,6 +56,11 @@ def main() -> int:
 
     if isinstance(data, dict) and data.get("status") == "error":
         print(f"Erro Twelve Data: {data.get('message', data)}", file=sys.stderr)
+        hint = (
+            "Verifique TWELVEDATA_API_KEY no .env (sem aspas extra, sem espaços). "
+            "Chave no dashboard: https://twelvedata.com/account/api-keys"
+        )
+        print(hint, file=sys.stderr)
         return 1
 
     if not isinstance(data, dict):
