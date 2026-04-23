@@ -11,6 +11,8 @@ Credenciais no .env (uma das opções):
 
 A API REST usa **c=client:secret** na query (não Basic Auth).
 Ver: https://docs.tradingeconomics.com/economic_calendar/country/
+
+HTTP **403** com chaves válidas = plano sem acesso ao **calendário** na API (ex.: só indicadores/mercado).
 """
 from __future__ import annotations
 
