@@ -8,3 +8,8 @@ __pycache__/
 logs/
 *.pt
 *.pkl
+catboost_info/
+models/.metaapi/
+auditoria_*.py
+data/
+*.bin
