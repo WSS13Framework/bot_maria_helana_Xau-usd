@@ -1,6 +1,7 @@
 .env
 *.json
 !schemas/regime_sugerido.schema.json
+!models/xauusd_catboost_v2_meta.json
 candles_xauusd.csv
 venv/
 __pycache__/

@@ -1,0 +1,18 @@
+{
+  "features": [
+    "rsi_14",
+    "atr_14",
+    "macd",
+    "macd_signal",
+    "macd_hist",
+    "ret_1h",
+    "ret_24h",
+    "volatility_24h",
+    "ma_50",
+    "ma_200",
+    "macro_dxy",
+    "macro_us10y",
+    "macro_xagusd"
+  ],
+  "target": "target"
+}
